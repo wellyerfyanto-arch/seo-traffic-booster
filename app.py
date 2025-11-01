@@ -65,11 +65,10 @@ class SEOTrafficBooster:
         if not all_proxies:
             all_proxies = self.get_fallback_proxies()
         
-        return list(set(all_proxies))[:50]  # Batasi hingga 50 proxy
+        return list(set(all_proxies))[:50]
 
     def get_fallback_proxies(self):
         """Fallback proxy list jika API tidak bekerja"""
-        # Beberapa public proxy (harus di-test)
         common_proxies = [
             "34.82.224.175:3128", 
             "35.185.196.38:3128", 
@@ -77,7 +76,6 @@ class SEOTrafficBooster:
             "35.224.246.249:3128", 
             "34.83.225.238:3128"
         ]
-        
         return common_proxies
     
     def test_proxy(self, proxy):
@@ -101,9 +99,8 @@ class SEOTrafficBooster:
             self.proxies = self.get_auto_proxies()
             self.update_status(f"Found {len(self.proxies)} proxies")
         
-        # Test dan pilih proxy yang berfungsi
         working_proxies = []
-        for proxy in self.proxies[:10]:  # Test 10 proxy pertama
+        for proxy in self.proxies[:10]:
             if self.test_proxy(proxy):
                 working_proxies.append(proxy)
         
@@ -117,17 +114,14 @@ class SEOTrafficBooster:
         """Setup Chrome driver dengan konfigurasi"""
         chrome_options = Options()
         
-        # Random User Agent
         user_agent = self.ua.random
         chrome_options.add_argument(f'--user-agent={user_agent}')
         
-        # Proxy settings
         proxy = self.get_working_proxy()
         if proxy:
             chrome_options.add_argument(f'--proxy-server=http://{proxy}')
             self.update_status(f"Using proxy: {proxy}")
         
-        # Additional options untuk menghindari deteksi
         chrome_options.add_argument('--headless=new')
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
@@ -174,18 +168,15 @@ class SEOTrafficBooster:
     def simulate_human_behavior(self, driver, keyword, target_website):
         """Simulasi perilaku manusia"""
         try:
-            # Step 1: Google Search
             self.update_status("Opening Google Search")
             driver.get("https://www.google.com")
             time.sleep(random.uniform(2, 4))
             
-            # Step 2: Input keyword
             search_box = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.NAME, "q"))
             )
             self.update_status(f"Searching for: {keyword}")
             
-            # Ketik seperti manusia
             for char in keyword:
                 search_box.send_keys(char)
                 time.sleep(random.uniform(0.1, 0.3))
@@ -194,7 +185,6 @@ class SEOTrafficBooster:
             search_box.submit()
             time.sleep(random.uniform(3, 5))
             
-            # Step 3: Cari dan klik website target
             self.update_status(f"Looking for: {target_website}")
             target_links = driver.find_elements(By.XPATH, f"//a[contains(@href, '{target_website}')]")
             
@@ -204,15 +194,12 @@ class SEOTrafficBooster:
                 self.update_status("Clicked target website")
                 time.sleep(random.uniform(3, 5))
                 
-                # Step 4: Scroll pelan ke bawah
                 self.update_status("Scrolling to bottom")
                 self.slow_scroll(driver)
                 
-                # Step 5: Kembali ke atas
                 driver.execute_script("window.scrollTo(0, 0);")
                 time.sleep(random.uniform(1, 2))
                 
-                # Step 6: Cari dan klik postingan acak
                 links = driver.find_elements(By.TAG_NAME, "a")
                 article_links = [link for link in links if self.is_article_link(link)]
                 
@@ -223,7 +210,6 @@ class SEOTrafficBooster:
                         self.update_status("Clicked random article")
                         time.sleep(random.uniform(3, 5))
                         
-                        # Step 7: Scroll selama 20 detik
                         self.update_status("Scrolling article for 20 seconds")
                         self.scroll_for_duration(driver, 20)
                         
@@ -242,8 +228,6 @@ class SEOTrafficBooster:
     def slow_scroll(self, driver):
         """Scroll pelan seperti manusia"""
         total_height = driver.execute_script("return document.body.scrollHeight")
-        viewport_height = driver.execute_script("return window.innerHeight")
-        
         current_position = 0
         while current_position < total_height:
             scroll_amount = random.randint(100, 300)
@@ -251,6 +235,134 @@ class SEOTrafficBooster:
             driver.execute_script(f"window.scrollTo(0, {current_position});")
             time.sleep(random.uniform(0.5, 1.5))
             
+            if random.random() < 0.2:
+                time.sleep(random.uniform(1, 3))
+    
+    def scroll_for_duration(self, driver, seconds):
+        """Scroll untuk durasi tertentu"""
+        start_time = time.time()
+        while time.time() - start_time < seconds:
+            scroll_direction = random.choice([-100, -50, 50, 100, 150])
+            driver.execute_script(f"window.scrollBy(0, {scroll_direction});")
+            time.sleep(random.uniform(0.5, 2))
+    
+    def is_article_link(self, link):
+        """Cek jika link kemungkinan adalah artikel"""
+        href = link.get_attribute('href')
+        text = link.text.strip()
+        
+        if not href or not text:
+            return False
+        
+        article_indicators = ['blog', 'article', 'post', 'news', '2023', '2024', 'read', 'story']
+        href_lower = href.lower()
+        text_lower = text.lower()
+        
+        return any(indicator in href_lower or indicator in text_lower for indicator in article_indicators)
+    
+    def clear_cache(self, driver):
+        """Bersihkan cache dan cookies"""
+        try:
+            driver.execute_script("window.localStorage.clear();")
+            driver.execute_script("window.sessionStorage.clear();")
+            driver.delete_all_cookies()
+            self.update_status("Cache cleared")
+        except Exception as e:
+            self.update_status(f"Cache clear error: {str(e)}")
+    
+    def run_cycles(self, keywords, target_website, cycles, delay_between_cycles):
+        """Jalankan semua cycles"""
+        self.is_running = True
+        self.total_cycles = cycles
+        self.current_cycle = 0
+        
+        for cycle in range(cycles):
+            if not self.is_running:
+                break
+                
+            self.current_cycle = cycle + 1
+            self.update_status(f"Starting cycle {self.current_cycle}/{cycles}")
+            
+            driver = self.setup_driver()
+            if not driver:
+                self.update_status("Failed to setup driver, skipping cycle")
+                continue
+            
+            try:
+                if not self.check_ip_leak(driver):
+                    self.update_status("IP leak detected, skipping cycle")
+                    continue
+                
+                keyword = random.choice(keywords)
+                success = self.simulate_human_behavior(driver, keyword, target_website)
+                
+                if success:
+                    self.update_status(f"Cycle {self.current_cycle} completed successfully")
+                else:
+                    self.update_status(f"Cycle {self.current_cycle} completed with issues")
+                
+                self.clear_cache(driver)
+                
+            except Exception as e:
+                self.update_status(f"Cycle {self.current_cycle} failed: {str(e)}")
+            finally:
+                driver.quit()
+            
+            if cycle < cycles - 1 and self.is_running:
+                self.update_status(f"Waiting {delay_between_cycles} seconds before next cycle")
+                for i in range(delay_between_cycles):
+                    if not self.is_running:
+                        break
+                    time.sleep(1)
+        
+        self.is_running = False
+        self.update_status("All cycles completed!")
+
+booster = SEOTrafficBooster()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@socketio.on('connect')
+def handle_connect():
+    emit('status_update', {
+        'message': f"[{time.strftime('%H:%M:%S')}] Connected to SEO Traffic Booster",
+        'cycle': booster.current_cycle,
+        'total_cycles': booster.total_cycles
+    })
+
+@socketio.on('start_cycles')
+def handle_start_cycles(data):
+    if booster.is_running:
+        emit('error', {'message': 'Booster is already running!'})
+        return
+    
+    keywords = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
+    target_website = data['website'].strip()
+    cycles = int(data['cycles'])
+    delay = int(data['delay'])
+    
+    if not keywords or not target_website:
+        emit('error', {'message': 'Please provide keywords and target website!'})
+        return
+    
+    thread = threading.Thread(
+        target=booster.run_cycles,
+        args=(keywords, target_website, cycles, delay)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    emit('start_success', {'message': 'SEO Booster started successfully!'})
+
+@socketio.on('stop_cycles')
+def handle_stop_cycles():
+    booster.is_running = False
+    emit('stop_success', {'message': 'SEO Booster stopping...'})
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)       
             # Kadang berhenti sebentar
             if random.random() < 0.2:
                 time.sleep(random.uniform(1, 3))
