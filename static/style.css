@@ -174,7 +174,6 @@ textarea:focus, input:focus {
     border-left: 4px solid #3498db;
 }
 
-/* Scrollbar styling */
 .status-log::-webkit-scrollbar {
     width: 8px;
 }
@@ -192,7 +191,6 @@ textarea:focus, input:focus {
     background: #777;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .config-group {
         grid-template-columns: 1fr;
