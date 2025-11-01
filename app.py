@@ -188,14 +188,14 @@ def main():
     
     # Configuration
     keywords = [
-        "web development tutorial",
-        "programming tips",
+        "bitcoin untuk pemula",
+        "apa itu cryptocurrecy",
         "technology news",
-        "software development",
-        "coding best practices"
+        "trading sinyal future",
+        "harga bitcoin hari ini"
     ]
     
-    target_website = "example.com"  # Replace with your website
+    target_website = "https://cryptoajah.blogspot.com"  # Replace with your website
     
     # Run cycles
     booster.run_cycle(keywords, target_website, cycles=10)
