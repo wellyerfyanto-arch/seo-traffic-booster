@@ -28,43 +28,47 @@ class SEOTrafficBooster:
         self.total_cycles = 0
         
     def get_auto_proxies(self):
-        """Ambil proxy otomatis dari berbagai sumber gratis"""
-        proxy_sources = [
-            'https://www.sslproxies.org/',
-            'https://free-proxy-list.net/',
-            'https://www.us-proxy.org/',
-            'https://www.proxy-list.download/api/v1/get?type=http'
-        ]
-        
-        all_proxies = []
-        
-        for source in proxy_sources:
-            try:
-                headers = {'User-Agent': self.ua.random}
-                response = requests.get(source, headers=headers, timeout=10)
-                
-                if 'free-proxy-list' in source or 'sslproxies' in source or 'us-proxy' in source:
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    table = soup.find('table', {'id': 'proxylisttable'})
-                    if table:
-                        for row in table.find_all('tr')[1:21]:  # Ambil 20 proxy pertama
-                            cols = row.find_all('td')
-                            if len(cols) >= 2:
-                                ip = cols[0].text.strip()
-                                port = cols[1].text.strip()
-                                if ip and port:
-                                    all_proxies.append(f"{ip}:{port}")
-                
-                elif 'proxy-list.download' in source:
-                    proxies = response.text.strip().split('\n')
-                    all_proxies.extend([p.strip() for p in proxies if p.strip()][:20])
+    def get_auto_proxies(self):
+    """Ambil proxy otomatis dari berbagai sumber gratis"""
+    proxy_sources = [
+        'https://www.sslproxies.org/',
+        'https://free-proxy-list.net/', 
+        'https://www.us-proxy.org/',
+        'https://www.proxy-list.download/api/v1/get?type=http'
+    ]
+    
+    all_proxies = []
+    
+    for source in proxy_sources:
+        try:
+            headers = {'User-Agent': self.ua.random}
+            response = requests.get(source, headers=headers, timeout=10)
+            
+            if 'free-proxy-list' in source or 'sslproxies' in source or 'us-proxy' in source:
+                # Gunakan html5lib parser sebagai alternatif
+                soup = BeautifulSoup(response.text, 'html.parser')
+                # Cari tabel dengan cara yang lebih sederhana
+                if 'proxylisttable' in response.text:
+                    # Ekstrak IP dan port dengan regex
+                    import re
+                    ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                    port_pattern = r'<td>(\d{2,5})</td>'
                     
-            except Exception as e:
-                self.update_status(f"Error getting proxies from {source}: {str(e)}")
-                continue
-        
-        # Hapus duplikat dan return
-        return list(set(all_proxies))
+                    ips = re.findall(ip_pattern, response.text)
+                    ports = re.findall(port_pattern, response.text)
+                    
+                    for ip, port in zip(ips[:20], ports[:20]):
+                        all_proxies.append(f"{ip}:{port}")
+            
+            elif 'proxy-list.download' in source:
+                proxies = response.text.strip().split('\n')
+                all_proxies.extend([p.strip() for p in proxies if p.strip()][:20])
+                
+        except Exception as e:
+            self.update_status(f"Error getting proxies from {source}: {str(e)}")
+            continue
+    
+    return list(set(all_proxies))
     
     def test_proxy(self, proxy):
         """Test jika proxy berfungsi"""
