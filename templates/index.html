@@ -67,4 +67,37 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+    </html>
+            <div class="button-group">
+                <button id="startBtn" class="btn btn-primary">Start SEO Booster</button>
+                <button id="stopBtn" class="btn btn-danger">Stop</button>
+            </div>
+        </div>
+
+        <div class="status-panel">
+            <h3>Real-time Status</h3>
+            <div class="cycle-info">
+                <span>Cycle: <strong id="currentCycle">0</strong> / <strong id="totalCycles">0</strong></span>
+            </div>
+            <div class="status-log" id="statusLog">
+                <div class="status-item">Ready to start...</div>
+            </div>
+        </div>
+
+        <div class="features">
+            <h3>🛠️ Features</h3>
+            <ul>
+                <li>✅ Automatic US Proxy Rotation</li>
+                <li>✅ Human Behavior Simulation</li>
+                <li>✅ IP Leak Protection</li>
+                <li>✅ Real-time Monitoring</li>
+                <li>✅ Auto Cache Clearing</li>
+                <li>✅ Random User Agents</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
 </html>
