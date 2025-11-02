@@ -286,7 +286,7 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'Menghentikan booster...'})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=False, host='0.0.0.0', port=5000)        if proxy_list:
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000)
             proxy = random.choice(proxy_list)
             self.current_proxy = proxy
             chrome_options.add_argument(f'--proxy-server=http://{proxy}')
