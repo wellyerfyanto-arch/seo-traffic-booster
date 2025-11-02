@@ -92,7 +92,7 @@ class SEOTrafficBooster:
         working_proxies = []
         self.update_status(f"Testing {len(proxy_list)} proxies...")
         
-        for proxy in proxy_list[:10]:
+        for proxy in proxy_list:
             if self.test_proxy(proxy):
                 working_proxies.append(proxy)
         
