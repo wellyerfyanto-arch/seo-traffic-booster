@@ -10,7 +10,7 @@ from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-# import eventlet # BARIS INI DIHAPUS
+# eventlet telah dihapus
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'seo_traffic_booster_secret'
@@ -65,7 +65,6 @@ class SEOTrafficBooster:
         chrome_options.add_argument('--disable-extensions')
     
         try:
-            # Menggunakan undetected-chromedriver atau memastikan chromedriver di PATH
             driver = webdriver.Chrome(options=chrome_options)
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             return driver
@@ -291,5 +290,5 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'Menghentikan booster...'})
 
 if __name__ == '__main__':
-    # Flask-SocketIO sekarang akan menggunakan threading atau mekanisme async bawaan yang didukung
-    socketio.run(app, debug=False, host='0.0.0.0', port=5000)
+    # PERBAIKAN AKHIR: Menambahkan allow_unsafe_werkzeug=True untuk mengatasi RuntimeError
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
