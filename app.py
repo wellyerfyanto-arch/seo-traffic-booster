@@ -26,8 +26,8 @@ class SEOTrafficBooster:
         self.current_proxy = None
         
     def setup_driver(self, proxy_list):
-        """Setup Chrome driver dengan konfigurasi dan proxy"""  # DI-INDENTASI
-        chrome_options = Options()  # DI-INDENTASI
+    """Setup Chrome driver dengan konfigurasi dan proxy"""
+    chrome_options = Options()
     
     # Random User Agent
     user_agent = self.ua.random
@@ -35,7 +35,7 @@ class SEOTrafficBooster:
     
     # Proxy settings jika ada
     if proxy_list:
-        proxy = random.choice(proxy_list)  # <-- Baris ini harus berada DALAM method
+        proxy = random.choice(proxy_list)
         self.current_proxy = proxy
         chrome_options.add_argument(f'--proxy-server=http://{proxy}')
         self.update_status(f"Menggunakan proxy: {proxy}")
@@ -43,24 +43,22 @@ class SEOTrafficBooster:
         self.current_proxy = None
         self.update_status("Menjalankan tanpa proxy")
     
-    # ... lanjutan kode method setup_driver ...
-        
-        # Chrome options untuk menghindari deteksi
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        chrome_options.add_experimental_option('useAutomationExtension', False)
-        chrome_options.add_argument('--disable-extensions')
-        
-        try:
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            return driver
-        except Exception as e:
-            self.update_status(f"Error setting up driver: {str(e)}")
-            return None
+    # Chrome options untuk menghindari deteksi
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
+    chrome_options.add_argument('--disable-extensions')
+    
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        return driver
+    except Exception as e:
+        self.update_status(f"Error setting up driver: {str(e)}")
+        return None
     
     def update_status(self, message):
         """Update status dan kirim ke UI"""
