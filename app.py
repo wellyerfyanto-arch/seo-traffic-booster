@@ -26,8 +26,8 @@ class SEOTrafficBooster:
         self.current_proxy = None
         
     def setup_driver(self, proxy_list):
-    """Setup Chrome driver dengan konfigurasi dan proxy"""
-    chrome_options = Options()
+    """Setup Chrome driver dengan konfigurasi dan proxy"""  # DI-INDENTASI
+    chrome_options = Options()  # DI-INDENTASI
     
     # Random User Agent
     user_agent = self.ua.random
