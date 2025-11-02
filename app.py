@@ -365,7 +365,8 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'SEO Booster stopping...'})
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)            'https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=US',
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)           
+            'https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=US',
             'https://www.proxy-list.download/api/v1/get?type=http',
             'https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt'
         ]
