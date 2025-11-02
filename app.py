@@ -34,18 +34,18 @@ class SEOTrafficBooster:
         chrome_options.add_argument(f'--user-agent={user_agent}')
     
         # Proxy settings jika ada
-    if proxy_list:
-        proxy = random.choice(proxy_list)
-        self.current_proxy = proxy
-        chrome_options.add_argument(f'--proxy-server=http://{proxy}')
-        self.update_status(f"Menggunakan proxy: {proxy}")
-    else:
-        self.current_proxy = None
-        self.update_status("Menjalankan tanpa proxy")
+        if proxy_list: # <-- Indentasi DITAMBAHKAN
+            proxy = random.choice(proxy_list) # <-- Indentasi DITAMBAHKAN
+            self.current_proxy = proxy # <-- Indentasi DITAMBAHKAN
+            chrome_options.add_argument(f'--proxy-server=http://{proxy}') # <-- Indentasi DITAMBAHKAN
+            self.update_status(f"Menggunakan proxy: {proxy}") # <-- Indentasi DITAMBAHKAN
+        else: # <-- Indentasi DITAMBAHKAN
+            self.current_proxy = None # <-- Indentasi DITAMBAHKAN
+            self.update_status("Menjalankan tanpa proxy") # <-- Indentasi DITAMBAHKAN
     
         # Chrome options untuk menghindari deteksi
-        chrome_options.add_argument('--headless')
-        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--headless') # <-- Indentasi DITAMBAHKAN (Ini adalah baris 295 yang error)
+        chrome_options.add_argument('--no-sandbox') # <-- Indentasi DITAMBAHKAN
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
