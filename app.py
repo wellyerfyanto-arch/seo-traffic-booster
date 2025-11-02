@@ -291,13 +291,7 @@ def handle_stop_cycles():
 
 if __name__ == '__main__':
     socketio.run(app, debug=False, host='0.0.0.0', port=5000)
-            proxy = random.choice(proxy_list)
-            self.current_proxy = proxy
-            chrome_options.add_argument(f'--proxy-server=http://{proxy}')
-            self.update_status(f"Menggunakan proxy: {proxy}")
-        else:
-            self.current_proxy = None
-            self.update_status("Menjalankan tanpa proxy")
+        
         
         # Chrome options untuk menghindari deteksi
         chrome_options.add_argument('--headless')
