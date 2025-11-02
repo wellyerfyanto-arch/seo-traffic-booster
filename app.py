@@ -10,11 +10,10 @@ from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-import eventlet # Dipertahankan untuk penggunaan threading
+# import eventlet # BARIS INI DIHAPUS
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'seo_traffic_booster_secret'
-# PERBAIKAN KRITIS: Menghapus async_mode='eventlet' agar autodeteksi berhasil
 socketio = SocketIO(app) 
 
 class SEOTrafficBooster:
@@ -292,5 +291,5 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'Menghentikan booster...'})
 
 if __name__ == '__main__':
-    # Pastikan Anda menjalankan ini di lingkungan yang mendukung Flask-SocketIO
+    # Flask-SocketIO sekarang akan menggunakan threading atau mekanisme async bawaan yang didukung
     socketio.run(app, debug=False, host='0.0.0.0', port=5000)
