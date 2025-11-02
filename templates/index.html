@@ -4,37 +4,135 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEO Traffic Booster</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; margin-bottom: 10px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        textarea, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .config { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .buttons { display: flex; gap: 10px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; flex: 1; }
+        .start { background: #28a745; color: white; }
+        .stop { background: #dc3545; color: white; }
+        .status { background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 5px; height: 200px; overflow-y: auto; font-family: monospace; margin-top: 20px; }
+        .status-item { margin-bottom: 5px; }
+    </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🚀 SEO Traffic Booster</h1>
-            <p>Automated traffic generation with human behavior simulation</p>
-        </header>
-
-        <div class="control-panel">
-            <div class="input-group">
-                <label for="keywords">Keywords (satu per baris):</label>
-                <textarea id="keywords" placeholder="web development tutorial&#10;programming tips&#10;technology news" rows="5"></textarea>
+        <h1>🚀 SEO Traffic Booster</h1>
+        <p>Automated traffic generation with proxy rotation</p>
+        
+        <div class="input-group">
+            <label for="keywords">Keywords (one per line):</label>
+            <textarea id="keywords" rows="4" placeholder="web development&#10;programming tips&#10;technology news"></textarea>
+        </div>
+        
+        <div class="input-group">
+            <label for="website">Target Website:</label>
+            <input type="text" id="website" placeholder="example.com">
+        </div>
+        
+        <div class="config">
+            <div>
+                <label for="cycles">Cycles:</label>
+                <input type="number" id="cycles" value="5" min="1" max="50">
             </div>
-
-            <div class="input-group">
-                <label for="website">Target Website:</label>
-                <input type="text" id="website" placeholder="example.com">
+            <div>
+                <label for="delay">Delay (seconds):</label>
+                <input type="number" id="delay" value="30" min="10" max="300">
             </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="start" id="startBtn">Start</button>
+            <button class="stop" id="stopBtn" disabled>Stop</button>
+        </div>
+        
+        <div class="status" id="statusLog">
+            <div class="status-item">Ready to start...</div>
+        </div>
+    </div>
 
-            <div class="config-group">
-                <div class="config-item">
-                    <label for="cycles">Number of Cycles:</label>
-                    <input type="number" id="cycles" value="10" min="1" max="100">
-                </div>
-                <div class="config-item">
-                    <label for="delay">Delay Between Cycles (seconds):</label>
-                    <input type="number" id="delay" value="30" min="10" max="300">
-                </div>
-            </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let isRunning = false;
 
+        // Socket events
+        socket.on('connect', () => addStatus('Connected to server'));
+        socket.on('status_update', (data) => {
+            updateCycleInfo(data.cycle, data.total_cycles);
+            addStatus(data.message);
+        });
+        socket.on('start_success', () => {
+            isRunning = true;
+            updateButtons();
+            addStatus('Booster started successfully');
+        });
+        socket.on('stop_success', () => {
+            isRunning = false;
+            updateButtons();
+            addStatus('Booster stopped');
+        });
+        socket.on('error', (data) => {
+            alert('Error: ' + data.message);
+            addStatus('ERROR: ' + data.message);
+        });
+
+        // Button events
+        document.getElementById('startBtn').addEventListener('click', startCycles);
+        document.getElementById('stopBtn').addEventListener('click', stopCycles);
+
+        function startCycles() {
+            const keywords = document.getElementById('keywords').value;
+            const website = document.getElementById('website').value;
+            const cycles = document.getElementById('cycles').value;
+            const delay = document.getElementById('delay').value;
+
+            if (!keywords || !website) {
+                alert('Please fill in keywords and target website');
+                return;
+            }
+
+            socket.emit('start_cycles', {
+                keywords: keywords,
+                website: website,
+                cycles: parseInt(cycles),
+                delay: parseInt(delay)
+            });
+        }
+
+        function stopCycles() {
+            socket.emit('stop_cycles');
+        }
+
+        function addStatus(message) {
+            const statusLog = document.getElementById('statusLog');
+            const item = document.createElement('div');
+            item.className = 'status-item';
+            item.textContent = message;
+            statusLog.appendChild(item);
+            statusLog.scrollTop = statusLog.scrollHeight;
+        }
+
+        function updateCycleInfo(current, total) {
+            // You can display cycle info if needed
+        }
+
+        function updateButtons() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+        }
+    </script>
+</body>
+</html>
             <div class="button-group">
                 <button id="startBtn" class="btn btn-primary">Start SEO Booster</button>
                 <button id="stopBtn" class="btn btn-danger">Stop</button>
