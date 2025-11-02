@@ -26,22 +26,24 @@ class SEOTrafficBooster:
         self.current_proxy = None
         
     def setup_driver(self, proxy_list):
-        """Setup Chrome driver dengan konfigurasi dan proxy"""
-        chrome_options = Options()
-        
-        # Random User Agent
-        user_agent = self.ua.random
-        chrome_options.add_argument(f'--user-agent={user_agent}')
-        
-        # Proxy settings jika ada
-        if proxy_list:
-            proxy = random.choice(proxy_list)
-            self.current_proxy = proxy
-            chrome_options.add_argument(f'--proxy-server=http://{proxy}')
-            self.update_status(f"Menggunakan proxy: {proxy}")
-        else:
-            self.current_proxy = None
-            self.update_status("Menjalankan tanpa proxy")
+    """Setup Chrome driver dengan konfigurasi dan proxy"""
+    chrome_options = Options()
+    
+    # Random User Agent
+    user_agent = self.ua.random
+    chrome_options.add_argument(f'--user-agent={user_agent}')
+    
+    # Proxy settings jika ada
+    if proxy_list:
+        proxy = random.choice(proxy_list)  # <-- Baris ini harus berada DALAM method
+        self.current_proxy = proxy
+        chrome_options.add_argument(f'--proxy-server=http://{proxy}')
+        self.update_status(f"Menggunakan proxy: {proxy}")
+    else:
+        self.current_proxy = None
+        self.update_status("Menjalankan tanpa proxy")
+    
+    # ... lanjutan kode method setup_driver ...
         
         # Chrome options untuk menghindari deteksi
         chrome_options.add_argument('--headless')
