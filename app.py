@@ -10,7 +10,6 @@ from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-import eventlet
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'seo_traffic_booster_secret'
@@ -24,18 +23,6 @@ class SEOTrafficBooster:
         self.current_cycle = 0
         self.total_cycles = 0
         self.current_proxy = None
-        
-    def update_status(self, message):
-        """Update status dan kirim ke UI"""
-        self.current_status = message
-        timestamp = time.strftime("%H:%M:%S")
-        socketio.emit('status_update', {
-            'message': f"[{timestamp}] {message}",
-            'cycle': self.current_cycle,
-            'total_cycles': self.total_cycles,
-            'current_proxy': self.current_proxy
-        })
-        print(f"[{timestamp}] {message}")
         
     def setup_driver(self, proxy_list):
         """Setup Chrome driver dengan konfigurasi dan proxy"""
@@ -65,13 +52,24 @@ class SEOTrafficBooster:
         chrome_options.add_argument('--disable-extensions')
     
         try:
-            # Menggunakan undetected-chromedriver atau memastikan chromedriver di PATH
             driver = webdriver.Chrome(options=chrome_options)
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             return driver
         except Exception as e:
             self.update_status(f"Error setting up driver: {str(e)}")
             return None
+    
+    def update_status(self, message):
+        """Update status dan kirim ke UI"""
+        self.current_status = message
+        timestamp = time.strftime("%H:%M:%S")
+        socketio.emit('status_update', {
+            'message': f"[{timestamp}] {message}",
+            'cycle': self.current_cycle,
+            'total_cycles': self.total_cycles,
+            'current_proxy': self.current_proxy
+        })
+        print(f"[{timestamp}] {message}")
     
     def test_proxy(self, proxy):
         """Test jika proxy berfungsi"""
@@ -81,7 +79,7 @@ class SEOTrafficBooster:
                 'http': f'http://{proxy}',
                 'https': f'http://{proxy}'
             }
-            response = requests.get(test_url, proxies=proxies, timeout=5)
+            response = requests.get(test_url, proxies=proxies, timeout=10)
             if response.status_code == 200:
                 return True
         except:
@@ -89,11 +87,11 @@ class SEOTrafficBooster:
         return False
     
     def get_working_proxies(self, proxy_list):
-        """Filter proxy yang berfungsi (Batasan [:10] telah dihapus)"""
+        """Filter proxy yang berfungsi"""
         working_proxies = []
         self.update_status(f"Testing {len(proxy_list)} proxies...")
         
-        for proxy in proxy_list:
+        for proxy in proxy_list[:10]:  # Test 10 proxy pertama saja
             if self.test_proxy(proxy):
                 working_proxies.append(proxy)
         
@@ -136,7 +134,6 @@ class SEOTrafficBooster:
                 driver.execute_script("window.scrollTo(0, 0);")
                 time.sleep(random.uniform(1, 2))
                 
-                # Coba klik link internal acak
                 links = driver.find_elements(By.TAG_NAME, "a")
                 if links:
                     try:
@@ -208,7 +205,7 @@ class SEOTrafficBooster:
                 continue
             
             try:
-                # Cek IP saat ini (Opsional)
+                # Cek IP saat ini
                 try:
                     driver.get("https://httpbin.org/ip")
                     time.sleep(2)
@@ -216,6 +213,7 @@ class SEOTrafficBooster:
                 except:
                     self.update_status("IP check skipped")
                 
+                # Jalankan simulasi
                 keyword = random.choice(keywords)
                 success = self.simulate_human_behavior(driver, keyword, target_website)
                 
@@ -224,6 +222,7 @@ class SEOTrafficBooster:
                 else:
                     self.update_status(f"Cycle {self.current_cycle} ada masalah")
                 
+                # Bersihkan cache
                 self.clear_cache(driver)
                 
             except Exception as e:
@@ -234,6 +233,7 @@ class SEOTrafficBooster:
                 except:
                     pass
             
+            # Delay antara cycles
             if cycle < cycles - 1 and self.is_running:
                 self.update_status(f"Tunggu {delay_between_cycles} detik")
                 for i in range(delay_between_cycles):
@@ -270,7 +270,7 @@ def handle_start_cycles(data):
     target_website = data['website'].strip()
     cycles = int(data['cycles'])
     delay = int(data['delay'])
-    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()] 
+    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()]
     
     if not keywords or not target_website:
         emit('error', {'message': 'Masukkan keywords dan website target!'})
@@ -291,5 +291,4 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'Menghentikan booster...'})
 
 if __name__ == '__main__':
-    # Baris ini sekarang bersih dan benar
     socketio.run(app, debug=False, host='0.0.0.0', port=5000)
