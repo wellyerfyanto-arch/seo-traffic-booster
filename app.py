@@ -240,6 +240,8 @@ class SEOTrafficBooster:
         self.is_running = False
         self.update_status("Semua cycle selesai!")
 
+# ... kode sebelumnya ...
+
 booster = SEOTrafficBooster()
 
 @app.route('/')
