@@ -10,7 +10,7 @@ from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, quote_plus
 import re
 
 app = Flask(__name__)
@@ -57,13 +57,15 @@ class SEOTrafficBooster:
             self.update_status("Menjalankan tanpa proxy")
     
         # Chrome options untuk menghindari deteksi
-        chrome_options.add_argument('--headless')
+        chrome_options.add_argument('--headless=new')  # Menggunakan headless baru
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
     
         try:
             driver = webdriver.Chrome(options=chrome_options)
@@ -104,234 +106,315 @@ class SEOTrafficBooster:
         """Generate keyword SEO otomatis dari URL"""
         try:
             parsed_url = urlparse(url)
-            domain = parsed_url.netloc.replace('www.', '').replace('.com', '').replace('.org', '').replace('.net', '')
-            path_parts = parsed_url.path.strip('/').split('/')
+            domain = parsed_url.netloc.replace('www.', '')
             
-            keywords = []
+            # Untuk blogspot, ambil nama subdomain
+            if 'blogspot.com' in domain:
+                blog_name = domain.replace('.blogspot.com', '')
+                keywords = [
+                    blog_name,
+                    f"{blog_name} blog",
+                    f"{blog_name} articles",
+                    f"{blog_name} posts",
+                    "blogspot",
+                    "blogger",
+                    "blog"
+                ]
+            else:
+                # Untuk domain biasa
+                domain_keywords = domain.replace('.com', '').replace('.org', '').replace('.net', '').split('.')
+                keywords = []
+                for kw in domain_keywords:
+                    if kw and len(kw) > 2:
+                        keywords.extend([
+                            kw,
+                            f"{kw} blog",
+                            f"{kw} website",
+                            f"{kw} online"
+                        ])
             
-            # Keyword dari domain
-            if domain:
-                domain_keywords = domain.split('.')[0].split('-')
-                keywords.extend([kw.capitalize() for kw in domain_keywords if kw])
-            
-            # Keyword dari path
-            for part in path_parts:
-                if part and not part.isdigit() and len(part) > 2:
-                    part_keywords = part.split('-')
-                    keywords.extend([kw.capitalize() for kw in part_keywords if kw])
-            
-            # Tambahkan keyword umum berdasarkan konten
-            if not keywords:
-                keywords = ["technology", "news", "blog", "articles", "updates"]
-            
-            # Buat variasi keyword
+            # Tambahkan variasi
             final_keywords = []
-            for kw in keywords[:5]:  # Ambil maksimal 5 keyword utama
+            for kw in keywords[:6]:
                 final_keywords.extend([
                     kw,
+                    f"site:{domain} {kw}",
+                    f"{kw} latest",
+                    f"{kw} update",
                     f"what is {kw}",
-                    f"{kw} news",
-                    f"latest {kw}",
-                    f"best {kw}",
-                    f"{kw} guide"
+                    f"about {kw}"
                 ])
             
-            return list(set(final_keywords))[:10]  # Hapus duplikat dan batasi 10 keyword
+            return list(set(final_keywords))[:15]
         
         except Exception as e:
             self.update_status(f"Error generating keywords: {str(e)}")
-            return ["technology", "digital news", "web updates", "online content", "internet guide"]
+            return ["blog", "articles", "posts", "website", "online content"]
     
-    def build_google_search_url(self, keyword, target_website):
-        """Bangun URL pencarian Google langsung dengan site: operator"""
+    def build_google_search_url(self, keyword):
+        """Bangun URL pencarian Google langsung"""
         # Encode keyword untuk URL
-        encoded_keyword = requests.utils.quote(keyword)
-        
-        # Parse domain dari target website
-        domain = urlparse(target_website).netloc.replace('www.', '')
-        
-        # Gunakan site: operator untuk meningkatkan akurasi
-        search_query = f"site:{domain} {encoded_keyword}"
-        
-        return f"https://www.google.com/search?q={search_query}&gbv=1"
+        encoded_keyword = quote_plus(keyword)
+        return f"https://www.google.com/search?q={encoded_keyword}"
     
-    def extract_domain_variations(self, url):
-        """Ekstrak berbagai variasi domain untuk pencarian yang lebih akurat"""
+    def extract_domain_patterns(self, url):
+        """Ekstrak berbagai pola domain untuk pencarian yang lebih akurat"""
         parsed = urlparse(url)
-        domain = parsed.netloc
+        full_domain = parsed.netloc
+        clean_domain = full_domain.replace('www.', '')
         
-        variations = []
+        patterns = []
         
-        # Variasi dasar
-        variations.append(domain)  # www.example.com
-        variations.append(domain.replace('www.', ''))  # example.com
+        # Pattern dasar
+        patterns.append(clean_domain)  # cryptoajah.blogspot.com
+        patterns.append(full_domain)   # www.cryptoajah.blogspot.com
         
-        # Variasi dengan dan tanpa subdomain
-        if domain.startswith('www.'):
-            variations.append(domain[4:])  # example.com
-        else:
-            variations.append(f"www.{domain}")  # www.example.com
+        # Untuk blogspot, tambahkan pattern khusus
+        if 'blogspot.com' in clean_domain:
+            blog_name = clean_domain.replace('.blogspot.com', '')
+            patterns.append(blog_name)  # cryptoajah
+            patterns.append(f"{blog_name}.blogspot.com")
+            patterns.append(f"www.{blog_name}.blogspot.com")
+            # Pattern untuk link blogspot yang umum
+            patterns.append(f"https://{blog_name}.blogspot.com")
+            patterns.append(f"https://{blog_name}.blogspot.com/")
+            patterns.append(f"http://{blog_name}.blogspot.com")
         
-        # Ekstrak nama domain utama (tanpa TLD)
-        domain_parts = domain.replace('www.', '').split('.')
-        if len(domain_parts) >= 2:
-            main_domain = domain_parts[-2]  # example dari example.com
-            variations.append(main_domain)
+        # Pattern path jika ada
+        if parsed.path and parsed.path != '/':
+            path_clean = parsed.path.strip('/')
+            patterns.append(f"{clean_domain}/{path_clean}")
+            patterns.append(f"{full_domain}/{path_clean}")
         
-        return list(set(variations))  # Hapus duplikat
+        return list(set(patterns))
     
-    def find_target_links(self, driver, target_website):
-        """Mencari link target dengan berbagai strategi"""
-        domain_variations = self.extract_domain_variations(target_website)
+    def find_target_links_advanced(self, driver, target_website):
+        """Mencari link target dengan strategi yang lebih advanced"""
+        domain_patterns = self.extract_domain_patterns(target_website)
+        found_links = []
         
-        # Strategi 1: Cari dengan berbagai variasi domain
-        for domain_var in domain_variations:
-            xpath = f"//a[contains(@href, '{domain_var}')]"
-            links = driver.find_elements(By.XPATH, xpath)
-            if links:
-                self.update_status(f"Ditemukan {len(links)} link dengan domain: {domain_var}")
-                return links
+        self.update_status(f"Mencari dengan {len(domain_patterns)} pola domain...")
         
-        # Strategi 2: Cari semua link dan filter manual
-        self.update_status("Mencari link dengan strategi alternatif...")
-        all_links = driver.find_elements(By.TAG_NAME, "a")
-        target_links = []
+        # Strategi 1: Cari dengan CSS selector hasil Google
+        selectors = [
+            "div.g a",  # Hasil utama Google
+            "a[href*='blogspot']",  # Link blogspot khusus
+            "h3 a",  # Heading hasil
+            ".rc a",  # Result container
+            ".r a",   # Result
+            "a[ping]" # Link dengan ping attribute (khas Google)
+        ]
         
-        for link in all_links:
-            href = link.get_attribute('href')
-            if href:
-                for domain_var in domain_variations:
-                    if domain_var in href:
-                        target_links.append(link)
-                        break
-        
-        if target_links:
-            self.update_status(f"Ditemukan {len(target_links)} link dengan filter manual")
-            return target_links
-        
-        # Strategi 3: Cari di hasil search (biasanya di div dengan class g)
-        self.update_status("Mencari di struktur hasil Google...")
-        search_results = driver.find_elements(By.CSS_SELECTOR, "div.g")
-        
-        for result in search_results:
+        for selector in selectors:
             try:
-                links = result.find_elements(By.TAG_NAME, "a")
-                for link in links:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for elem in elements:
+                    href = elem.get_attribute('href')
+                    if href:
+                        for pattern in domain_patterns:
+                            if pattern in href:
+                                found_links.append(elem)
+                                break
+                if found_links:
+                    self.update_status(f"Ditemukan {len(found_links)} link dengan selector: {selector}")
+                    break
+            except Exception as e:
+                continue
+        
+        # Strategi 2: Cari semua link dan filter
+        if not found_links:
+            self.update_status("Mencari semua link di halaman...")
+            all_links = driver.find_elements(By.TAG_NAME, "a")
+            for link in all_links:
+                try:
                     href = link.get_attribute('href')
                     if href:
-                        for domain_var in domain_variations:
-                            if domain_var in href:
-                                target_links.append(link)
+                        for pattern in domain_patterns:
+                            if pattern in href.lower():
+                                found_links.append(link)
                                 break
+                except:
+                    continue
+        
+        # Strategi 3: Cari dengan teks yang relevan
+        if not found_links:
+            self.update_status("Mencari dengan teks link...")
+            link_texts = ["blog", "website", "site", "visit", "here", "read more", "continue"]
+            for text in link_texts:
+                try:
+                    links = driver.find_elements(By.PARTIAL_LINK_TEXT, text)
+                    for link in links:
+                        href = link.get_attribute('href')
+                        if href and any(pattern in href.lower() for pattern in domain_patterns):
+                            found_links.append(link)
+                except:
+                    continue
+        
+        # Remove duplicates
+        unique_links = []
+        seen_hrefs = set()
+        for link in found_links:
+            try:
+                href = link.get_attribute('href')
+                if href and href not in seen_hrefs:
+                    seen_hrefs.add(href)
+                    unique_links.append(link)
             except:
                 continue
         
-        return target_links
+        return unique_links
+    
+    def smart_click(self, driver, element):
+        """Klik element dengan cara yang lebih smart"""
+        try:
+            # Scroll ke element
+            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+            time.sleep(1)
+            
+            # Coba klik dengan JavaScript
+            driver.execute_script("arguments[0].click();", element)
+            return True
+        except:
+            try:
+                # Coba klik normal
+                element.click()
+                return True
+            except:
+                try:
+                    # Coba dengan ActionChains
+                    from selenium.webdriver.common.action_chains import ActionChains
+                    actions = ActionChains(driver)
+                    actions.move_to_element(element).click().perform()
+                    return True
+                except:
+                    return False
     
     def simulate_human_behavior(self, driver, keyword, target_website):
         """Simulasi perilaku manusia dengan pencarian langsung"""
         try:
-            # Build Google search URL langsung dengan site: operator
-            search_url = self.build_google_search_url(keyword, target_website)
+            # Build Google search URL
+            search_url = self.build_google_search_url(keyword)
             
             self.update_status(f"Membuka pencarian Google: {keyword}")
             driver.get(search_url)
-            time.sleep(random.uniform(3, 5))
+            time.sleep(random.uniform(4, 6))
             
-            # Scroll sedikit untuk memuat semua hasil
-            driver.execute_script("window.scrollTo(0, 500);")
-            time.sleep(2)
+            # Tunggu hasil load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Scroll bertahap
+            self.update_status("Scrolling hasil pencarian...")
+            for i in range(3):
+                driver.execute_script(f"window.scrollTo(0, {500 * (i + 1)});")
+                time.sleep(1)
             
             self.update_status(f"Mencari: {target_website}")
             
-            # Cari link target dengan berbagai strategi
-            target_links = self.find_target_links(driver, target_website)
+            # Cari link target
+            target_links = self.find_target_links_advanced(driver, target_website)
             
             if target_links:
-                # Pilih link yang paling mungkin benar
+                self.update_status(f"Found {len(target_links)} potential links")
+                
+                # Pilih link yang paling relevan
                 target_link = target_links[0]
-                
-                # Verifikasi link sebelum klik
                 link_href = target_link.get_attribute('href')
-                self.update_status(f"Memilih link: {link_href[:80]}...")
+                self.update_status(f"Selected: {link_href[:100]}...")
                 
-                # Scroll ke element sebelum klik
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", target_link)
-                time.sleep(random.uniform(1, 2))
-                
-                # Klik menggunakan JavaScript untuk menghindari masalah interaksi
-                driver.execute_script("arguments[0].click();", target_link)
-                self.update_status("Berhasil klik website target")
-                time.sleep(random.uniform(5, 8))  # Tunggu lebih lama untuk loading
-                
-                # Verifikasi kita sudah di website yang benar
-                current_url = driver.current_url
-                domain_variations = self.extract_domain_variations(target_website)
-                is_correct_site = any(var in current_url for var in domain_variations)
-                
-                if not is_correct_site:
-                    self.update_status("Mungkin tidak di website target, mencoba navigasi manual...")
-                    # Coba akses langsung
-                    driver.get(target_website)
-                    time.sleep(random.uniform(3, 5))
-                
-                self.update_status("Scrolling ke bawah")
-                self.slow_scroll(driver)
-                
-                # Kembali ke atas
-                driver.execute_script("window.scrollTo(0, 0);")
-                time.sleep(random.uniform(1, 2))
-                
-                # Coba klik link internal acak
-                current_domain = urlparse(driver.current_url).netloc
-                links = driver.find_elements(By.TAG_NAME, "a")
-                internal_links = [
-                    link for link in links 
-                    if link.get_attribute('href') and current_domain in link.get_attribute('href')
-                ]
-                
-                if internal_links:
-                    try:
-                        random_link = random.choice(internal_links[:10])  # Batasi pilihan
-                        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", random_link)
-                        time.sleep(1)
-                        driver.execute_script("arguments[0].click();", random_link)
-                        self.update_status("Klik artikel random")
-                        time.sleep(random.uniform(4, 6))
+                # Klik link
+                if self.smart_click(driver, target_link):
+                    self.update_status("Berhasil klik website target")
+                    time.sleep(random.uniform(6, 10))
+                    
+                    # Verifikasi kita di website yang benar
+                    current_url = driver.current_url
+                    domain_patterns = self.extract_domain_patterns(target_website)
+                    is_correct_site = any(pattern in current_url for pattern in domain_patterns)
+                    
+                    if is_correct_site:
+                        self.update_status("Berhasil sampai di website target")
                         
-                        self.update_status("Scrolling artikel")
-                        self.scroll_for_duration(driver, 10)  # Kurangi durasi
-                    except Exception as e:
-                        self.update_status(f"Tidak bisa klik artikel: {str(e)}")
-                
-                return True
+                        # Lakukan aktivitas manusia
+                        self.update_status("Browsing website...")
+                        self.slow_scroll(driver)
+                        
+                        # Klik internal link jika memungkinkan
+                        self.click_random_internal_link(driver, target_website)
+                        
+                        return True
+                    else:
+                        self.update_status("Redirected to different site, trying direct access...")
+                        # Coba akses langsung
+                        return self.direct_website_access(driver, target_website)
+                else:
+                    self.update_status("Gagal klik link, coba akses langsung")
+                    return self.direct_website_access(driver, target_website)
             else:
-                self.update_status("Website target tidak ditemukan di hasil search, mencoba akses langsung...")
-                # Fallback: akses website langsung
-                try:
-                    driver.get(target_website)
-                    time.sleep(random.uniform(5, 8))
-                    self.update_status("Akses langsung berhasil")
-                    
-                    # Lakukan aktivitas browsing biasa
-                    self.update_status("Scrolling website")
-                    self.slow_scroll(driver)
-                    
-                    return True
-                except Exception as e:
-                    self.update_status(f"Gagal akses langsung: {str(e)}")
-                    return False
+                self.update_status("Tidak menemukan link di hasil search, akses langsung...")
+                return self.direct_website_access(driver, target_website)
                 
         except Exception as e:
-            self.update_status(f"Error simulasi: {str(e)}")
-            # Fallback ke akses langsung
-            try:
-                driver.get(target_website)
-                time.sleep(random.uniform(5, 8))
-                self.update_status("Fallback: Akses langsung berhasil")
+            self.update_status(f"Error during search: {str(e)}")
+            return self.direct_website_access(driver, target_website)
+    
+    def direct_website_access(self, driver, target_website):
+        """Akses website langsung tanpa melalui search"""
+        try:
+            self.update_status(f"Mengakses website langsung: {target_website}")
+            driver.get(target_website)
+            time.sleep(random.uniform(8, 12))
+            
+            # Verifikasi berhasil load
+            if driver.current_url:
+                self.update_status("Berhasil akses website langsung")
+                self.slow_scroll(driver)
+                self.click_random_internal_link(driver, target_website)
                 return True
-            except:
+            else:
                 return False
+        except Exception as e:
+            self.update_status(f"Gagal akses langsung: {str(e)}")
+            return False
+    
+    def click_random_internal_link(self, driver, target_website):
+        """Klik link internal acak"""
+        try:
+            domain_patterns = self.extract_domain_patterns(target_website)
+            links = driver.find_elements(By.TAG_NAME, "a")
+            
+            internal_links = []
+            for link in links:
+                try:
+                    href = link.get_attribute('href')
+                    if href and any(pattern in href for pattern in domain_patterns):
+                        # Skip link yang sama dengan current URL
+                        if href != driver.current_url:
+                            internal_links.append(link)
+                except:
+                    continue
+            
+            if internal_links:
+                # Pilih maksimal 2 link internal untuk diklik
+                clicks = min(2, len(internal_links))
+                for i in range(clicks):
+                    try:
+                        link = random.choice(internal_links)
+                        link_text = link.text[:50] if link.text else "no text"
+                        self.update_status(f"Klik internal link: {link_text}...")
+                        
+                        if self.smart_click(driver, link):
+                            time.sleep(random.uniform(5, 8))
+                            self.slow_scroll(driver)
+                            # Kembali ke halaman sebelumnya atau tetap di halaman baru
+                            if random.choice([True, False]):
+                                driver.back()
+                                time.sleep(2)
+                    except:
+                        continue
+        except Exception as e:
+            self.update_status(f"Error clicking internal links: {str(e)}")
     
     def slow_scroll(self, driver):
         """Scroll pelan seperti manusia"""
@@ -340,31 +423,23 @@ class SEOTrafficBooster:
             viewport_height = driver.execute_script("return window.innerHeight")
             current_position = 0
             
-            while current_position < total_height:
-                scroll_amount = random.randint(200, 400)
+            scrolls = random.randint(3, 6)
+            for i in range(scrolls):
+                scroll_amount = random.randint(300, 600)
                 current_position += scroll_amount
                 
-                # Jangan scroll melebihi total height
-                if current_position > total_height:
-                    current_position = total_height
+                if current_position >= total_height:
+                    current_position = total_height - viewport_height
                 
                 driver.execute_script(f"window.scrollTo(0, {current_position});")
+                time.sleep(random.uniform(2, 4))
                 
-                # Kadang berhenti sebentar
-                if random.random() > 0.7:
-                    time.sleep(random.uniform(1, 3))
-                else:
-                    time.sleep(random.uniform(0.5, 1.5))
+            # Scroll kembali ke atas
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
+            
         except Exception as e:
-            self.update_status(f"Error saat scroll: {str(e)}")
-    
-    def scroll_for_duration(self, driver, seconds):
-        """Scroll untuk durasi tertentu"""
-        start_time = time.time()
-        while time.time() - start_time < seconds:
-            scroll_direction = random.choice([-150, -80, 80, 150, 200])
-            driver.execute_script(f"window.scrollBy(0, {scroll_direction});")
-            time.sleep(random.uniform(0.5, 2))
+            self.update_status(f"Error during scroll: {str(e)}")
     
     def clear_cache(self, driver):
         """Bersihkan cache dan cookies"""
@@ -383,7 +458,7 @@ class SEOTrafficBooster:
         # Generate keywords otomatis jika tidak ada yang diinput
         if not keywords:
             keywords = self.generate_keywords_from_url(target_website)
-            self.update_status(f"Generated keywords: {', '.join(keywords)}")
+            self.update_status(f"Generated keywords: {', '.join(keywords[:5])}...")
         
         working_proxies = self.get_working_proxies(proxy_list) if proxy_list else []
         
@@ -410,79 +485,4 @@ class SEOTrafficBooster:
                 except:
                     self.update_status("IP check skipped")
                 
-                keyword = random.choice(keywords)
-                success = self.simulate_human_behavior(driver, keyword, target_website)
-                
-                if success:
-                    self.update_status(f"Cycle {self.current_cycle} sukses")
-                else:
-                    self.update_status(f"Cycle {self.current_cycle} ada masalah")
-                
-                self.clear_cache(driver)
-                
-            except Exception as e:
-                self.update_status(f"Cycle {self.current_cycle} error: {str(e)}")
-            finally:
-                try:
-                    driver.quit()
-                except:
-                    pass
-            
-            if cycle < cycles - 1 and self.is_running:
-                self.update_status(f"Tunggu {delay_between_cycles} detik")
-                for i in range(delay_between_cycles):
-                    if not self.is_running:
-                        break
-                    time.sleep(1)
-        
-        self.is_running = False
-        self.update_status("Semua cycle selesai!")
-
-# Global instance
-booster = SEOTrafficBooster()
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@socketio.on('connect')
-def handle_connect():
-    emit('status_update', {
-        'message': f"[{time.strftime('%H:%M:%S')}] Terhubung ke SEO Traffic Booster",
-        'cycle': booster.current_cycle,
-        'total_cycles': booster.total_cycles,
-        'current_proxy': booster.current_proxy
-    })
-
-@socketio.on('start_cycles')
-def handle_start_cycles(data):
-    if booster.is_running:
-        emit('error', {'message': 'Booster sedang berjalan!'})
-        return
-    
-    keywords = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
-    target_website = data['website'].strip()
-    cycles = int(data['cycles'])
-    delay = int(data['delay'])
-    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()] 
-    
-    if not target_website:
-        emit('error', {'message': 'Masukkan website target!'})
-        return
-    
-    thread = threading.Thread(
-        target=booster.run_cycles,
-        args=(keywords, target_website, cycles, delay, proxy_list)
-    )
-    thread.daemon = True
-    thread.start()
-    
-    emit('start_success', {'message': 'SEO Booster mulai!'})
-
-@socketio.on('stop_cycles')
-def handle_stop_cycles():
-    booster.is_running = False
-    emit('stop_success', {'message': 'Menghentikan booster...'})
-
-if __name__ == '__main__':
-    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+                keyword = random.
