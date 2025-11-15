@@ -349,37 +349,5 @@ def handle_stop_cycles():
     emit('stop_success', {'message': 'Menghentikan booster...'})
 
 if __name__ == '__main__':
-    # PERBAIKAN AKHIR: Menambahkan allow_unsafe_werkzeug=True untuk mengatasi RuntimeError
-    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)_cycles')
-def handle_start_cycles(data):
-    if booster.is_running:
-        emit('error', {'message': 'Booster sedang berjalan!'})
-        return
-    
-    keywords = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
-    target_website = data['website'].strip()
-    cycles = int(data['cycles'])
-    delay = int(data['delay'])
-    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()] 
-    
-    if not keywords or not target_website:
-        emit('error', {'message': 'Masukkan keywords dan website target!'})
-        return
-    
-    thread = threading.Thread(
-        target=booster.run_cycles,
-        args=(keywords, target_website, cycles, delay, proxy_list)
-    )
-    thread.daemon = True
-    thread.start()
-    
-    emit('start_success', {'message': 'SEO Booster mulai!'})
-
-@socketio.on('stop_cycles')
-def handle_stop_cycles():
-    booster.is_running = False
-    emit('stop_success', {'message': 'Menghentikan booster...'})
-
-if __name__ == '__main__':
-    # PERBAIKAN AKHIR: Menambahkan allow_unsafe_werkzeug=True untuk mengatasi RuntimeError
+    # PERBAIKAN: Syntax error telah diperbaiki
     socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
