@@ -10,6 +10,7 @@ from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
+from urllib.parse import urlparse, urlunparse
 # eventlet telah dihapus
 
 app = Flask(__name__)
@@ -99,32 +100,81 @@ class SEOTrafficBooster:
         self.update_status(f"Found {len(working_proxies)} working proxies")
         return working_proxies
     
-    def simulate_human_behavior(self, driver, keyword, target_website):
-        """Simulasi perilaku manusia"""
+    def generate_keywords_from_url(self, url):
+        """Generate keyword SEO otomatis dari URL"""
         try:
-            self.update_status("Membuka Google Search")
-            driver.get("https://www.google.com")
-            time.sleep(random.uniform(2, 4))
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.replace('www.', '').replace('.com', '').replace('.org', '').replace('.net', '')
+            path_parts = parsed_url.path.strip('/').split('/')
             
-            search_box = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.NAME, "q"))
-            )
-            self.update_status(f"Searching: {keyword}")
+            keywords = []
             
-            # Ketik seperti manusia
-            for char in keyword:
-                search_box.send_keys(char)
-                time.sleep(random.uniform(0.1, 0.3))
+            # Keyword dari domain
+            if domain:
+                domain_keywords = domain.split('.')[0].split('-')
+                keywords.extend([kw.capitalize() for kw in domain_keywords if kw])
             
-            time.sleep(random.uniform(1, 2))
-            search_box.submit()
+            # Keyword dari path
+            for part in path_parts:
+                if part and not part.isdigit() and len(part) > 2:
+                    part_keywords = part.split('-')
+                    keywords.extend([kw.capitalize() for kw in part_keywords if kw])
+            
+            # Tambahkan keyword umum berdasarkan konten
+            if not keywords:
+                keywords = ["technology", "news", "blog", "articles", "updates"]
+            
+            # Buat variasi keyword
+            final_keywords = []
+            for kw in keywords[:5]:  # Ambil maksimal 5 keyword utama
+                final_keywords.extend([
+                    kw,
+                    f"what is {kw}",
+                    f"{kw} news",
+                    f"latest {kw}",
+                    f"best {kw}",
+                    f"{kw} guide"
+                ])
+            
+            return list(set(final_keywords))[:10]  # Hapus duplikat dan batasi 10 keyword
+        
+        except Exception as e:
+            self.update_status(f"Error generating keywords: {str(e)}")
+            return ["technology", "digital news", "web updates", "online content", "internet guide"]
+    
+    def build_google_search_url(self, keyword):
+        """Bangun URL pencarian Google langsung"""
+        # Encode keyword untuk URL
+        encoded_keyword = requests.utils.quote(keyword)
+        return f"https://www.google.com/search?q={encoded_keyword}&gbv=1"
+    
+    def simulate_human_behavior(self, driver, keyword, target_website):
+        """Simulasi perilaku manusia dengan pencarian langsung"""
+        try:
+            # Build Google search URL langsung
+            search_url = self.build_google_search_url(keyword)
+            
+            self.update_status(f"Membuka pencarian Google: {keyword}")
+            driver.get(search_url)
             time.sleep(random.uniform(3, 5))
             
             self.update_status(f"Mencari: {target_website}")
-            target_links = driver.find_elements(By.XPATH, f"//a[contains(@href, '{target_website}')]")
+            
+            # Cari link yang mengandung domain target
+            domain = urlparse(target_website).netloc.replace('www.', '')
+            target_links = driver.find_elements(By.XPATH, f"//a[contains(@href, '{domain}')]")
+            
+            if not target_links:
+                # Fallback: cari dengan berbagai variasi
+                target_links = driver.find_elements(By.XPATH, "//a[contains(@href, 'http')]")
+                target_links = [link for link in target_links if domain in link.get_attribute('href')]
             
             if target_links:
                 target_link = target_links[0]
+                # Scroll ke element sebelum klik
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", target_link)
+                time.sleep(random.uniform(1, 2))
+                
                 target_link.click()
                 self.update_status("Berhasil klik website target")
                 time.sleep(random.uniform(3, 5))
@@ -137,9 +187,13 @@ class SEOTrafficBooster:
                 
                 # Coba klik link internal acak
                 links = driver.find_elements(By.TAG_NAME, "a")
-                if links:
+                internal_links = [link for link in links if link.get_attribute('href') and domain in link.get_attribute('href')]
+                
+                if internal_links:
                     try:
-                        random_link = random.choice(links)
+                        random_link = random.choice(internal_links)
+                        driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", random_link)
+                        time.sleep(1)
                         random_link.click()
                         self.update_status("Klik artikel random")
                         time.sleep(random.uniform(3, 5))
@@ -189,6 +243,11 @@ class SEOTrafficBooster:
         self.is_running = True
         self.total_cycles = cycles
         self.current_cycle = 0
+        
+        # Generate keywords otomatis jika tidak ada yang diinput
+        if not keywords:
+            keywords = self.generate_keywords_from_url(target_website)
+            self.update_status(f"Generated keywords: {', '.join(keywords)}")
         
         working_proxies = self.get_working_proxies(proxy_list) if proxy_list else []
         
@@ -260,6 +319,38 @@ def handle_connect():
     })
 
 @socketio.on('start_cycles')
+def handle_start_cycles(data):
+    if booster.is_running:
+        emit('error', {'message': 'Booster sedang berjalan!'})
+        return
+    
+    keywords = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
+    target_website = data['website'].strip()
+    cycles = int(data['cycles'])
+    delay = int(data['delay'])
+    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()] 
+    
+    if not target_website:
+        emit('error', {'message': 'Masukkan website target!'})
+        return
+    
+    thread = threading.Thread(
+        target=booster.run_cycles,
+        args=(keywords, target_website, cycles, delay, proxy_list)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    emit('start_success', {'message': 'SEO Booster mulai!'})
+
+@socketio.on('stop_cycles')
+def handle_stop_cycles():
+    booster.is_running = False
+    emit('stop_success', {'message': 'Menghentikan booster...'})
+
+if __name__ == '__main__':
+    # PERBAIKAN AKHIR: Menambahkan allow_unsafe_werkzeug=True untuk mengatasi RuntimeError
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)_cycles')
 def handle_start_cycles(data):
     if booster.is_running:
         emit('error', {'message': 'Booster sedang berjalan!'})
