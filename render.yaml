@@ -3,9 +3,5 @@ services:
     name: seo-traffic-booster
     env: python
     plan: free
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      playwright install chromium
-      playwright install-deps
+    buildCommand: pip install -r requirements.txt && playwright install chromium
     startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app
