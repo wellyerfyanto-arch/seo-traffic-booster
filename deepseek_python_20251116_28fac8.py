@@ -1,0 +1,769 @@
+import time
+import random
+import threading
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.action_chains import ActionChains
+from fake_useragent import UserAgent
+import requests
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, emit
+from urllib.parse import urlparse, quote_plus
+import re
+import subprocess
+import platform
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'seo_traffic_booster_secret'
+socketio = SocketIO(app) 
+
+class SEOTrafficBooster:
+    def __init__(self):
+        self.ua = UserAgent()
+        self.is_running = False
+        self.current_status = "Ready"
+        self.current_cycle = 0
+        self.total_cycles = 0
+        self.current_proxy = None
+        self.proxy_ping_times = {}
+        self.current_target_website = None
+        
+    def update_status(self, message):
+        """Update status dan kirim ke UI"""
+        self.current_status = message
+        timestamp = time.strftime("%H:%M:%S")
+        socketio.emit('status_update', {
+            'message': f"[{timestamp}] {message}",
+            'cycle': self.current_cycle,
+            'total_cycles': self.total_cycles,
+            'current_proxy': self.current_proxy
+        })
+        print(f"[{timestamp}] {message}")
+    
+    def ping_proxy(self, proxy_host):
+        """Mengukur ping ke proxy server"""
+        try:
+            # Extract host dari proxy (format: ip:port atau user:pass@ip:port)
+            if '@' in proxy_host:
+                proxy_host = proxy_host.split('@')[1]
+            
+            host = proxy_host.split(':')[0]
+            
+            # Parameter ping berdasarkan OS
+            param = '-n' if platform.system().lower() == 'windows' else '-c'
+            
+            # Eksekusi command ping
+            command = ['ping', param, '2', host]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0:
+                # Parse output untuk mendapatkan waktu ping
+                if 'time=' in result.stdout:
+                    time_line = [line for line in result.stdout.split('\n') if 'time=' in line][0]
+                    ping_time = re.search(r'time=([\d.]+)\s*ms', time_line)
+                    if ping_time:
+                        return float(ping_time.group(1))
+            return None
+        except:
+            return None
+    
+    def calculate_proxy_delay(self, ping_time):
+        """Hitung delay tambahan berdasarkan ping proxy"""
+        if ping_time is None:
+            return 10  # Default delay jika ping tidak terukur
+        
+        if ping_time < 100:
+            return 2  # Ping bagus, delay kecil
+        elif ping_time < 300:
+            return 5  # Ping sedang
+        elif ping_time < 500:
+            return 8  # Ping agak lambat
+        else:
+            return 12  # Ping sangat lambat
+
+    def get_proxy_delay(self):
+        """Dapatkan delay berdasarkan ping proxy"""
+        if self.current_proxy and self.current_proxy in self.proxy_ping_times:
+            ping_time = self.proxy_ping_times[self.current_proxy]
+            if ping_time < 100: return 2
+            elif ping_time < 300: return 4
+            elif ping_time < 500: return 6
+            else: return 8
+        return 3
+        
+    def setup_driver(self, proxy_list):
+        """Setup Chrome driver dengan konfigurasi dan proxy yang lebih robust"""
+        chrome_options = Options()
+    
+        # Random User Agent
+        user_agent = self.ua.random
+        chrome_options.add_argument(f'--user-agent={user_agent}')
+    
+        # Proxy settings jika ada
+        if proxy_list:
+            proxy = random.choice(proxy_list)
+            self.current_proxy = proxy
+            
+            # Ukur ping proxy sebelum digunakan
+            ping_time = self.ping_proxy(proxy)
+            if ping_time:
+                self.update_status(f"Menggunakan proxy: {proxy} (ping: {ping_time:.0f}ms)")
+                self.proxy_ping_times[proxy] = ping_time
+            else:
+                self.update_status(f"Menggunakan proxy: {proxy} (ping: tidak terukur)")
+            
+            # Tambahkan timeout dan retry settings untuk proxy
+            chrome_options.add_argument(f'--proxy-server=http://{proxy}')
+            chrome_options.add_argument('--proxy-bypass-list=localhost,127.0.0.1')
+        else:
+            self.current_proxy = None
+            self.update_status("Menjalankan tanpa proxy")
+    
+        # Enhanced stealth options
+        chrome_options.add_argument('--headless=new')
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
+        
+        # Additional anti-detection
+        chrome_options.add_argument('--disable-renderer-backgrounding')
+        chrome_options.add_argument('--disable-background-timer-throttling')
+        chrome_options.add_argument('--disable-client-side-phishing-detection')
+        chrome_options.add_argument('--disable-popup-blocking')
+        chrome_options.add_argument('--no-first-run')
+        chrome_options.add_argument('--no-default-browser-check')
+        chrome_options.add_argument('--disable-component-update')
+        chrome_options.add_argument('--disable-default-apps')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
+        
+        # Network settings
+        chrome_options.add_argument('--disable-web-security')
+        chrome_options.add_argument('--allow-running-insecure-content')
+        chrome_options.add_argument('--ignore-certificate-errors')
+        chrome_options.add_argument('--ignore-ssl-errors')
+    
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+            
+            # Set timeouts untuk handle slow proxies
+            driver.set_page_load_timeout(60)
+            driver.implicitly_wait(20)
+            
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            return driver
+        except Exception as e:
+            self.update_status(f"Error setting up driver: {str(e)}")
+            # Coba tanpa proxy jika dengan proxy gagal
+            if proxy_list:
+                self.update_status("Mencoba tanpa proxy...")
+                return self.setup_driver([])  # Recursive call tanpa proxy
+            return None
+    
+    def test_proxy(self, proxy):
+        """Test jika proxy berfungsi dengan timeout yang lebih longgar"""
+        try:
+            test_url = "http://httpbin.org/ip"
+            proxies = {
+                'http': f'http://{proxy}',
+                'https': f'http://{proxy}'
+            }
+            
+            # Ukur ping terlebih dahulu
+            ping_time = self.ping_proxy(proxy)
+            timeout = 10 + (ping_time / 1000 if ping_time else 5)  # Timeout berdasarkan ping
+            
+            response = requests.get(test_url, proxies=proxies, timeout=timeout)
+            if response.status_code == 200:
+                return True
+        except Exception as e:
+            self.update_status(f"Proxy {proxy} test failed: {str(e)}")
+        return False
+    
+    def get_working_proxies(self, proxy_list):
+        """Filter proxy yang berfungsi dengan penanganan error yang lebih baik"""
+        working_proxies = []
+        self.update_status(f"Testing {len(proxy_list)} proxies...")
+        
+        # Test proxy dengan timeout yang disesuaikan
+        for proxy in proxy_list:
+            if not self.is_running:
+                break
+                
+            if self.test_proxy(proxy):
+                working_proxies.append(proxy)
+                self.update_status(f"✓ Proxy {proxy} bekerja")
+            else:
+                self.update_status(f"✗ Proxy {proxy} gagal")
+        
+        self.update_status(f"Found {len(working_proxies)} working proxies")
+        return working_proxies
+    
+    def generate_keywords_from_url(self, url):
+        """Generate keyword SEO otomatis dari URL"""
+        try:
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.replace('www.', '')
+            
+            # Untuk blogspot, ambil nama subdomain
+            if 'blogspot.com' in domain:
+                blog_name = domain.replace('.blogspot.com', '')
+                keywords = [
+                    blog_name,
+                    f"{blog_name} blog",
+                    f"{blog_name} articles",
+                    f"{blog_name} posts",
+                    "blogspot",
+                    "blogger",
+                    "blog"
+                ]
+            else:
+                # Untuk domain biasa
+                domain_keywords = domain.replace('.com', '').replace('.org', '').replace('.net', '').split('.')
+                keywords = []
+                for kw in domain_keywords:
+                    if kw and len(kw) > 2:
+                        keywords.extend([
+                            kw,
+                            f"{kw} blog",
+                            f"{kw} website",
+                            f"{kw} online"
+                        ])
+            
+            # Tambahkan variasi
+            final_keywords = []
+            for kw in keywords[:6]:
+                final_keywords.extend([
+                    kw,
+                    f"site:{domain} {kw}",
+                    f"{kw} latest",
+                    f"{kw} update",
+                    f"what is {kw}",
+                    f"about {kw}"
+                ])
+            
+            return list(set(final_keywords))[:15]
+        
+        except Exception as e:
+            self.update_status(f"Error generating keywords: {str(e)}")
+            return ["blog", "articles", "posts", "website", "online content"]
+    
+    def build_google_search_url(self, keyword):
+        """Bangun URL pencarian Google langsung"""
+        # Encode keyword untuk URL
+        encoded_keyword = quote_plus(keyword)
+        return f"https://www.google.com/search?q={encoded_keyword}"
+    
+    def extract_domain_patterns(self, url):
+        """Ekstrak berbagai pola domain untuk pencarian yang lebih akurat"""
+        parsed = urlparse(url)
+        full_domain = parsed.netloc
+        clean_domain = full_domain.replace('www.', '')
+        
+        patterns = []
+        
+        # Pattern dasar
+        patterns.append(clean_domain)  # cryptoajah.blogspot.com
+        patterns.append(full_domain)   # www.cryptoajah.blogspot.com
+        
+        # Untuk blogspot, tambahkan pattern khusus
+        if 'blogspot.com' in clean_domain:
+            blog_name = clean_domain.replace('.blogspot.com', '')
+            patterns.append(blog_name)  # cryptoajah
+            patterns.append(f"{blog_name}.blogspot.com")
+            patterns.append(f"www.{blog_name}.blogspot.com")
+            # Pattern untuk link blogspot yang umum
+            patterns.append(f"https://{blog_name}.blogspot.com")
+            patterns.append(f"https://{blog_name}.blogspot.com/")
+            patterns.append(f"http://{blog_name}.blogspot.com")
+        
+        # Pattern path jika ada
+        if parsed.path and parsed.path != '/':
+            path_clean = parsed.path.strip('/')
+            patterns.append(f"{clean_domain}/{path_clean}")
+            patterns.append(f"{full_domain}/{path_clean}")
+        
+        return list(set(patterns))
+    
+    def handle_google_sorry_page(self, driver):
+        """Deteksi dan handle halaman Google Sorry/CAPTCHA"""
+        try:
+            current_url = driver.current_url
+            if "google.com/sorry" in current_url or "blocked" in current_url.lower():
+                self.update_status("⚠️ Terdeteksi halaman Google Sorry/CAPTCHA")
+                
+                # Coba beberapa strategi bypass
+                strategies = [
+                    self.bypass_with_direct_access,
+                    self.bypass_with_user_agent_rotation,
+                    self.bypass_with_referer_change
+                ]
+                
+                for strategy in strategies:
+                    if strategy(driver):
+                        self.update_status("✅ Berhasil bypass halaman Sorry")
+                        return True
+                
+                self.update_status("❌ Gagal bypass halaman Sorry")
+                return False
+            return True
+        except Exception as e:
+            self.update_status(f"Error handling sorry page: {str(e)}")
+            return False
+
+    def bypass_with_direct_access(self, driver):
+        """Bypass dengan akses langsung ke website"""
+        try:
+            # Simpan URL target dari parameter sebelumnya
+            if hasattr(self, 'current_target_website'):
+                driver.get(self.current_target_website)
+                time.sleep(5)
+                return "sorry" not in driver.current_url.lower()
+        except:
+            pass
+        return False
+
+    def bypass_with_user_agent_rotation(self, driver):
+        """Rotate User Agent untuk bypass"""
+        try:
+            new_ua = self.ua.random
+            driver.execute_cdp_cmd('Network.setUserAgentOverride', {"userAgent": new_ua})
+            driver.refresh()
+            time.sleep(3)
+            return "sorry" not in driver.current_url.lower()
+        except:
+            return False
+
+    def bypass_with_referer_change(self, driver):
+        """Coba dengan referer yang berbeda"""
+        try:
+            # Kembali ke halaman sebelumnya
+            driver.back()
+            time.sleep(2)
+            return "sorry" not in driver.current_url.lower()
+        except:
+            return False
+    
+    def find_target_links_advanced(self, driver, target_website):
+        """Mencari link target dengan strategi yang lebih advanced"""
+        domain_patterns = self.extract_domain_patterns(target_website)
+        found_links = []
+        
+        self.update_status(f"Mencari dengan {len(domain_patterns)} pola domain...")
+        
+        # Pattern khusus untuk blogspot
+        blogspot_patterns = [
+            f"https://{domain_patterns[0]}",  # https://cryptoajah.blogspot.com
+            f"https://www.{domain_patterns[0]}",  # https://www.cryptoajah.blogspot.com
+            f"http://{domain_patterns[0]}",  # http versi
+            f"http://www.{domain_patterns[0]}"
+        ]
+        
+        # CSS Selectors yang lebih spesifik untuk hasil Google
+        selectors = [
+            "div.g a[href*='blogspot']",  # Hasil dengan link blogspot
+            "a[href*='blogspot.com']",  # Semua link blogspot
+            "h3 a",  # Heading results
+            ".yuRUbf a",  # Container hasil modern
+            ".rc .r a",  # Container hasil classic
+            "a[data-ved]"  # Link dengan attribute Google
+        ]
+        
+        for selector in selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                for elem in elements:
+                    try:
+                        href = elem.get_attribute('href')
+                        if href:
+                            # Cek semua pattern
+                            for pattern in blogspot_patterns + domain_patterns:
+                                if pattern.lower() in href.lower():
+                                    link_text = elem.text[:30] if elem.text else "no-text"
+                                    self.update_status(f"✅ Ditemukan: {link_text}...")
+                                    found_links.append(elem)
+                                    break
+                    except:
+                        continue
+                        
+                if found_links:
+                    break
+                    
+            except Exception as e:
+                continue
+        
+        # Strategi fallback: Cari semua link dan filter
+        if not found_links:
+            self.update_status("Mencari semua link di halaman...")
+            all_links = driver.find_elements(By.TAG_NAME, "a")
+            for link in all_links:
+                try:
+                    href = link.get_attribute('href')
+                    if href:
+                        for pattern in domain_patterns:
+                            if pattern in href.lower():
+                                found_links.append(link)
+                                break
+                except:
+                    continue
+        
+        # Remove duplicates
+        unique_links = []
+        seen_hrefs = set()
+        for link in found_links:
+            try:
+                href = link.get_attribute('href')
+                if href and href not in seen_hrefs:
+                    seen_hrefs.add(href)
+                    unique_links.append(link)
+            except:
+                continue
+        
+        return unique_links
+    
+    def smart_click(self, driver, element):
+        """Klik element dengan cara yang lebih smart"""
+        try:
+            # Scroll ke element
+            driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+            time.sleep(1)
+            
+            # Coba klik dengan JavaScript
+            driver.execute_script("arguments[0].click();", element)
+            return True
+        except:
+            try:
+                # Coba klik normal
+                element.click()
+                return True
+            except:
+                try:
+                    # Coba dengan ActionChains
+                    actions = ActionChains(driver)
+                    actions.move_to_element(element).click().perform()
+                    return True
+                except:
+                    return False
+
+    def natural_scroll_behavior(self, driver):
+        """Scroll behavior yang lebih natural seperti manusia"""
+        try:
+            scroll_actions = [
+                {"y": 300, "delay": 1},
+                {"y": 800, "delay": 2},
+                {"y": 1200, "delay": 1},
+                {"y": 500, "delay": 1},  # Scroll naik-turun
+                {"y": 1500, "delay": 3}
+            ]
+            
+            for action in scroll_actions:
+                driver.execute_script(f"window.scrollTo(0, {action['y']});")
+                time.sleep(action['delay'] + random.uniform(0.5, 1.5))
+                
+        except Exception as e:
+            self.update_status(f"Scroll error: {str(e)}")
+    
+    def click_and_verify_target(self, driver, element, target_website):
+        """Klik link dan verifikasi berhasil sampai target"""
+        try:
+            link_href = element.get_attribute('href')
+            self.update_status(f"Selected: {link_href[:100]}...")
+            
+            # Klik link
+            if self.smart_click(driver, element):
+                self.update_status("Berhasil klik website target")
+                
+                # Tambahkan delay berdasarkan ping proxy
+                proxy_delay = self.get_proxy_delay()
+                time.sleep(random.uniform(6 + proxy_delay, 10 + proxy_delay))
+                
+                # Verifikasi kita di website yang benar
+                current_url = driver.current_url
+                domain_patterns = self.extract_domain_patterns(target_website)
+                is_correct_site = any(pattern in current_url for pattern in domain_patterns)
+                
+                if is_correct_site:
+                    self.update_status("✅ Berhasil sampai di website target")
+                    
+                    # Lakukan aktivitas manusia
+                    self.update_status("Browsing website...")
+                    self.slow_scroll(driver)
+                    
+                    # Klik internal link jika memungkinkan
+                    self.click_random_internal_link(driver, target_website)
+                    
+                    return True
+                else:
+                    self.update_status("❌ Redirected to different site, trying direct access...")
+                    # Coba akses langsung
+                    return self.direct_website_access(driver, target_website)
+            else:
+                self.update_status("❌ Gagal klik link, coba akses langsung")
+                return self.direct_website_access(driver, target_website)
+                
+        except Exception as e:
+            self.update_status(f"❌ Error clicking target: {str(e)}")
+            return self.direct_website_access(driver, target_website)
+    
+    def simulate_human_behavior(self, driver, keyword, target_website):
+        """Simulasi perilaku manusia yang lebih advanced"""
+        try:
+            # Simpan target website untuk bypass
+            self.current_target_website = target_website
+            
+            # Strategy 1: Pencarian Google normal
+            search_url = self.build_google_search_url(keyword)
+            self.update_status(f"🔍 Mencari: {keyword}")
+            
+            proxy_delay = self.get_proxy_delay()
+            driver.get(search_url)
+            time.sleep(random.uniform(5 + proxy_delay, 8 + proxy_delay))
+            
+            # Cek dan handle halaman Sorry
+            if not self.handle_google_sorry_page(driver):
+                self.update_status("🔄 Fallback ke akses langsung...")
+                return self.direct_website_access(driver, target_website)
+            
+            # Tunggu hasil load dengan kondisi yang lebih spesifik
+            try:
+                WebDriverWait(driver, 15).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.g, .rc, .tF2Cxc"))
+                )
+            except:
+                self.update_status("⏳ Timeout tunggu hasil, lanjutkan...")
+            
+            # Scroll behavior yang lebih natural
+            self.natural_scroll_behavior(driver)
+            
+            # Cari link dengan pattern yang lebih spesifik
+            target_links = self.find_target_links_advanced(driver, target_website)
+            
+            if target_links:
+                return self.click_and_verify_target(driver, target_links[0], target_website)
+            else:
+                self.update_status("🔗 Link tidak ditemukan, akses langsung...")
+                return self.direct_website_access(driver, target_website)
+                
+        except Exception as e:
+            self.update_status(f"❌ Error simulasi: {str(e)}")
+            return self.direct_website_access(driver, target_website)
+    
+    def direct_website_access(self, driver, target_website):
+        """Akses website langsung tanpa melalui search"""
+        try:
+            self.update_status(f"🌐 Mengakses website langsung: {target_website}")
+            
+            # Tambahkan delay berdasarkan ping proxy
+            proxy_delay = self.get_proxy_delay()
+            
+            driver.get(target_website)
+            time.sleep(random.uniform(8 + proxy_delay, 12 + proxy_delay))
+            
+            # Verifikasi berhasil load
+            if driver.current_url:
+                self.update_status("✅ Berhasil akses website langsung")
+                self.slow_scroll(driver)
+                self.click_random_internal_link(driver, target_website)
+                return True
+            else:
+                return False
+        except Exception as e:
+            self.update_status(f"❌ Gagal akses langsung: {str(e)}")
+            return False
+    
+    def click_random_internal_link(self, driver, target_website):
+        """Klik link internal acak"""
+        try:
+            domain_patterns = self.extract_domain_patterns(target_website)
+            links = driver.find_elements(By.TAG_NAME, "a")
+            
+            internal_links = []
+            for link in links:
+                try:
+                    href = link.get_attribute('href')
+                    if href and any(pattern in href for pattern in domain_patterns):
+                        # Skip link yang sama dengan current URL
+                        if href != driver.current_url:
+                            internal_links.append(link)
+                except:
+                    continue
+            
+            if internal_links:
+                # Pilih maksimal 2 link internal untuk diklik
+                clicks = min(2, len(internal_links))
+                for i in range(clicks):
+                    try:
+                        link = random.choice(internal_links)
+                        link_text = link.text[:50] if link.text else "no text"
+                        self.update_status(f"🔗 Klik internal link: {link_text}...")
+                        
+                        if self.smart_click(driver, link):
+                            # Tambahkan delay berdasarkan ping
+                            proxy_delay = self.get_proxy_delay()
+                            
+                            time.sleep(random.uniform(5 + proxy_delay, 8 + proxy_delay))
+                            self.slow_scroll(driver)
+                            # Kembali ke halaman sebelumnya atau tetap di halaman baru
+                            if random.choice([True, False]):
+                                driver.back()
+                                time.sleep(2)
+                    except:
+                        continue
+        except Exception as e:
+            self.update_status(f"Error clicking internal links: {str(e)}")
+    
+    def slow_scroll(self, driver):
+        """Scroll pelan seperti manusia"""
+        try:
+            total_height = driver.execute_script("return document.body.scrollHeight")
+            viewport_height = driver.execute_script("return window.innerHeight")
+            current_position = 0
+            
+            scrolls = random.randint(3, 6)
+            for i in range(scrolls):
+                scroll_amount = random.randint(300, 600)
+                current_position += scroll_amount
+                
+                if current_position >= total_height:
+                    current_position = total_height - viewport_height
+                
+                driver.execute_script(f"window.scrollTo(0, {current_position});")
+                
+                # Tambahkan delay berdasarkan ping proxy
+                proxy_delay = self.get_proxy_delay() / 2
+                
+                time.sleep(random.uniform(2 + proxy_delay, 4 + proxy_delay))
+                
+            # Scroll kembali ke atas
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
+            
+        except Exception as e:
+            self.update_status(f"Error during scroll: {str(e)}")
+    
+    def clear_cache(self, driver):
+        """Bersihkan cache dan cookies"""
+        try:
+            driver.delete_all_cookies()
+            self.update_status("Cache cleared")
+        except Exception as e:
+            self.update_status(f"Error clear cache: {str(e)}")
+    
+    def run_cycles(self, keywords, target_website, cycles, delay_between_cycles, proxy_list):
+        """Jalankan semua cycles"""
+        self.is_running = True
+        self.total_cycles = cycles
+        self.current_cycle = 0
+        
+        # Generate keywords otomatis jika tidak ada yang diinput
+        if not keywords:
+            keywords = self.generate_keywords_from_url(target_website)
+            self.update_status(f"Generated keywords: {', '.join(keywords[:5])}...")
+        
+        working_proxies = self.get_working_proxies(proxy_list) if proxy_list else []
+        
+        for cycle in range(cycles):
+            if not self.is_running:
+                break
+                
+            self.current_cycle = cycle + 1
+            self.update_status(f"🔄 Memulai cycle {self.current_cycle}/{cycles}")
+            
+            # Rotate proxies lebih agresif
+            current_proxy_list = working_proxies if working_proxies else []
+            if current_proxy_list and cycle > 0:
+                random.shuffle(current_proxy_list)
+            
+            driver = self.setup_driver(current_proxy_list)
+            if not driver:
+                self.update_status("❌ Gagal setup driver, skip cycle")
+                continue
+            
+            try:
+                # Enhanced human behavior
+                keyword = random.choice(keywords)
+                success = self.simulate_human_behavior(driver, keyword, target_website)
+                
+                if success:
+                    self.update_status(f"✅ Cycle {self.current_cycle} completed successfully")
+                else:
+                    self.update_status(f"⚠️ Cycle {self.current_cycle} completed with issues")
+                
+                self.clear_cache(driver)
+                
+            except Exception as e:
+                self.update_status(f"❌ Cycle {self.current_cycle} error: {str(e)}")
+            finally:
+                try:
+                    driver.quit()
+                except:
+                    pass
+            
+            if cycle < cycles - 1 and self.is_running:
+                # Tambahkan delay ekstra berdasarkan proxy
+                extra_delay = self.get_proxy_delay()
+                
+                total_delay = delay_between_cycles + extra_delay
+                self.update_status(f"⏳ Waiting {total_delay} seconds (base: {delay_between_cycles}s + proxy: {extra_delay}s)...")
+                for i in range(total_delay):
+                    if not self.is_running:
+                        break
+                    time.sleep(1)
+        
+        self.is_running = False
+        self.update_status("🎉 All cycles completed!")
+
+# Global instance
+booster = SEOTrafficBooster()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@socketio.on('connect')
+def handle_connect():
+    emit('status_update', {
+        'message': f"[{time.strftime('%H:%M:%S')}] Connected to SEO Traffic Booster",
+        'cycle': booster.current_cycle,
+        'total_cycles': booster.total_cycles,
+        'current_proxy': booster.current_proxy
+    })
+
+@socketio.on('start_cycles')
+def handle_start_cycles(data):
+    if booster.is_running:
+        emit('error', {'message': 'Booster is already running!'})
+        return
+    
+    keywords = [k.strip() for k in data['keywords'].split('\n') if k.strip()]
+    target_website = data['website'].strip()
+    cycles = int(data['cycles'])
+    delay = int(data['delay'])
+    proxy_list = [p.strip() for p in data['proxies'].split('\n') if p.strip()] 
+    
+    if not target_website:
+        emit('error', {'message': 'Please enter target website!'})
+        return
+    
+    thread = threading.Thread(
+        target=booster.run_cycles,
+        args=(keywords, target_website, cycles, delay, proxy_list)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    emit('start_success', {'message': 'SEO Booster started!'})
+
+@socketio.on('stop_cycles')
+def handle_stop_cycles():
+    booster.is_running = False
+    emit('stop_success', {'message': 'Stopping booster...'})
+
+if __name__ == '__main__':
+    socketio.run(app, debug=False, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
