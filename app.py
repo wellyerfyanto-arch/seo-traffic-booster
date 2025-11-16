@@ -1,7 +1,8 @@
 import time
 import random
-import threading
-from playwright.sync_api import sync_playwright
+import asyncio
+import aiohttp
+from playwright.async_api import async_playwright
 from fake_useragent import UserAgent
 import requests
 from flask import Flask, render_template, request
@@ -11,6 +12,7 @@ import re
 import subprocess
 import platform
 import os
+import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'seo_traffic_booster_secret')
@@ -38,10 +40,10 @@ class SEOTrafficBooster:
         })
         print(f"[{timestamp}] {message}")
     
-    def setup_browser(self, proxy_list):
-        """Setup Playwright browser yang dioptimalkan untuk Render"""
+    async def setup_browser(self, proxy_list):
+        """Setup Playwright browser dengan Async API"""
         try:
-            playwright = sync_playwright().start()
+            playwright = await async_playwright().start()
             
             # Proxy configuration
             proxy_arg = None
@@ -49,11 +51,14 @@ class SEOTrafficBooster:
                 proxy = random.choice(proxy_list)
                 self.current_proxy = proxy
                 self.update_status(f"Using proxy: {proxy}")
+                proxy_arg = {
+                    'server': proxy
+                }
             else:
                 self.current_proxy = None
                 self.update_status("Running without proxy")
 
-            # Browser launch options untuk Render.com
+            # Browser launch options
             launch_options = {
                 'headless': True,
                 'args': [
@@ -71,24 +76,24 @@ class SEOTrafficBooster:
             if proxy_arg:
                 launch_options['proxy'] = proxy_arg
 
-            browser = playwright.chromium.launch(**launch_options)
+            browser = await playwright.chromium.launch(**launch_options)
 
             # Context options
-            context = browser.new_context(
+            context = await browser.new_context(
                 viewport={'width': 1280, 'height': 720},
                 user_agent=self.ua.random,
                 ignore_https_errors=True
             )
 
             # Stealth script
-            context.add_init_script("""
+            await context.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
                 Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
                 Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
             """)
 
-            page = context.new_page()
-            page.set_default_timeout(30000)
+            page = await context.new_page()
+            await page.set_default_timeout(30000)
             
             return playwright, browser, context, page
 
@@ -120,8 +125,8 @@ class SEOTrafficBooster:
         encoded_keyword = quote_plus(keyword)
         return f"https://www.google.com/search?q={encoded_keyword}"
     
-    def simulate_human_behavior(self, page, keyword, target_website):
-        """Simulasi perilaku manusia yang disederhanakan"""
+    async def simulate_human_behavior(self, page, keyword, target_website):
+        """Simulasi perilaku manusia dengan Async API"""
         try:
             self.current_target_website = target_website
             
@@ -129,16 +134,16 @@ class SEOTrafficBooster:
             search_url = self.build_google_search_url(keyword)
             self.update_status(f"🔍 Searching: {keyword}")
             
-            page.goto(search_url, wait_until='domcontentloaded')
-            time.sleep(random.uniform(3, 5))
+            await page.goto(search_url, wait_until='domcontentloaded')
+            await asyncio.sleep(random.uniform(3, 5))
             
             # Cari link target
-            all_links = page.query_selector_all("a")
+            all_links = await page.query_selector_all("a")
             target_links = []
             
             for link in all_links:
                 try:
-                    href = link.get_attribute('href')
+                    href = await link.get_attribute('href')
                     if href and target_website in href:
                         target_links.append(link)
                 except:
@@ -147,26 +152,26 @@ class SEOTrafficBooster:
             if target_links:
                 link = random.choice(target_links)
                 self.update_status("✅ Found target link, clicking...")
-                link.click()
-                time.sleep(random.uniform(5, 8))
+                await link.click()
+                await asyncio.sleep(random.uniform(5, 8))
                 
                 # Aktivitas di website target
                 self.update_status("🖱️ Clicking Google Ads...")
-                self.click_google_ads(page)
+                await self.click_google_ads(page)
                 
                 self.update_status("📖 Reading random post...")
-                self.read_random_post(page)
+                await self.read_random_post(page)
                 
                 return True
             else:
                 self.update_status("🌐 Direct website access...")
-                return self.direct_website_access(page, target_website)
+                return await self.direct_website_access(page, target_website)
                 
         except Exception as e:
             self.update_status(f"❌ Simulation error: {str(e)}")
-            return self.direct_website_access(page, target_website)
+            return await self.direct_website_access(page, target_website)
     
-    def click_google_ads(self, page):
+    async def click_google_ads(self, page):
         """Klik iklan Google Ads"""
         try:
             ads_selectors = [
@@ -177,16 +182,16 @@ class SEOTrafficBooster:
             
             for selector in ads_selectors:
                 try:
-                    ads = page.query_selector_all(selector)
+                    ads = await page.query_selector_all(selector)
                     if ads:
                         ad = random.choice(ads)
-                        ad.scroll_into_view_if_needed()
-                        time.sleep(1)
-                        ad.click()
+                        await ad.scroll_into_view_if_needed()
+                        await asyncio.sleep(1)
+                        await ad.click()
                         self.update_status("🖱️ Clicked ad, waiting...")
-                        time.sleep(random.uniform(8, 12))
-                        page.go_back(wait_until='domcontentloaded')
-                        time.sleep(2)
+                        await asyncio.sleep(random.uniform(8, 12))
+                        await page.go_back(wait_until='domcontentloaded')
+                        await asyncio.sleep(2)
                         return True
                 except:
                     continue
@@ -195,7 +200,7 @@ class SEOTrafficBooster:
             self.update_status(f"Ad click error: {str(e)}")
             return False
     
-    def read_random_post(self, page):
+    async def read_random_post(self, page):
         """Baca postingan acak"""
         try:
             post_selectors = [
@@ -208,19 +213,20 @@ class SEOTrafficBooster:
             
             for selector in post_selectors:
                 try:
-                    posts = page.query_selector_all(selector)
+                    posts = await page.query_selector_all(selector)
                     if posts:
                         post = random.choice(posts)
-                        post_text = post.text_content()[:30] if post.text_content() else "post"
+                        post_text = await post.text_content()
+                        post_text = post_text[:30] + "..." if post_text else "post"
                         self.update_status(f"📚 Reading: {post_text}...")
-                        post.click()
-                        time.sleep(3)
+                        await post.click()
+                        await asyncio.sleep(3)
                         
                         # Scroll seperti membaca
-                        self.reading_scroll_behavior(page)
-                        time.sleep(random.uniform(15, 25))
+                        await self.reading_scroll_behavior(page)
+                        await asyncio.sleep(random.uniform(15, 25))
                         
-                        page.go_back(wait_until='domcontentloaded')
+                        await page.go_back(wait_until='domcontentloaded')
                         return True
                 except:
                     continue
@@ -229,37 +235,37 @@ class SEOTrafficBooster:
             self.update_status(f"Reading error: {str(e)}")
             return False
     
-    def reading_scroll_behavior(self, page):
+    async def reading_scroll_behavior(self, page):
         """Scroll behavior untuk membaca"""
         try:
-            total_height = page.evaluate("() => document.body.scrollHeight")
+            total_height = await page.evaluate("() => document.body.scrollHeight")
             current_pos = 0
             
             while current_pos < total_height - 800:
                 scroll_amount = random.randint(200, 400)
                 current_pos += scroll_amount
-                page.evaluate(f"window.scrollTo(0, {current_pos})")
-                time.sleep(random.uniform(1, 3))
+                await page.evaluate(f"window.scrollTo(0, {current_pos})")
+                await asyncio.sleep(random.uniform(1, 3))
         except:
             pass
     
-    def direct_website_access(self, page, target_website):
+    async def direct_website_access(self, page, target_website):
         """Akses website langsung"""
         try:
-            page.goto(target_website, wait_until='domcontentloaded')
-            time.sleep(random.uniform(5, 8))
+            await page.goto(target_website, wait_until='domcontentloaded')
+            await asyncio.sleep(random.uniform(5, 8))
             
             # Aktivitas di website
-            self.click_google_ads(page)
-            self.read_random_post(page)
+            await self.click_google_ads(page)
+            await self.read_random_post(page)
             
             return True
         except Exception as e:
             self.update_status(f"Direct access error: {str(e)}")
             return False
     
-    def run_cycles(self, keywords, target_website, cycles, delay_between_cycles, proxy_list):
-        """Jalankan cycles yang dioptimalkan"""
+    async def run_async_cycles(self, keywords, target_website, cycles, delay_between_cycles, proxy_list):
+        """Jalankan cycles dengan Async API"""
         self.is_running = True
         self.total_cycles = cycles
         self.current_cycle = 0
@@ -274,13 +280,13 @@ class SEOTrafficBooster:
             self.current_cycle = cycle + 1
             self.update_status(f"🔄 Cycle {self.current_cycle}/{cycles}")
             
-            playwright, browser, context, page = self.setup_browser(proxy_list)
+            playwright, browser, context, page = await self.setup_browser(proxy_list)
             if not browser:
                 continue
             
             try:
                 keyword = random.choice(keywords)
-                success = self.simulate_human_behavior(page, keyword, target_website)
+                success = await self.simulate_human_behavior(page, keyword, target_website)
                 
                 if success:
                     self.update_status(f"✅ Cycle {self.current_cycle} completed")
@@ -291,9 +297,9 @@ class SEOTrafficBooster:
                 self.update_status(f"❌ Cycle error: {str(e)}")
             finally:
                 try:
-                    context.close()
-                    browser.close()
-                    playwright.stop()
+                    await context.close()
+                    await browser.close()
+                    await playwright.stop()
                 except:
                     pass
             
@@ -302,10 +308,22 @@ class SEOTrafficBooster:
                 for i in range(delay_between_cycles):
                     if not self.is_running:
                         break
-                    time.sleep(1)
+                    await asyncio.sleep(1)
         
         self.is_running = False
         self.update_status("🎉 All cycles completed!")
+    
+    def run_cycles(self, keywords, target_website, cycles, delay_between_cycles, proxy_list):
+        """Wrapper untuk menjalankan async cycles dari thread"""
+        # Buat event loop baru untuk thread ini
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(
+                self.run_async_cycles(keywords, target_website, cycles, delay_between_cycles, proxy_list)
+            )
+        finally:
+            loop.close()
 
 # Global instance
 booster = SEOTrafficBooster()
