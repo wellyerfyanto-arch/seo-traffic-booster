@@ -1,550 +1,122 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SEO Traffic Booster By Erimo</title>
+    <title>SEO Traffic Booster</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
-
-        .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            padding: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .form-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            border: 1px solid #e9ecef;
-        }
-
-        .status-section {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            border: 1px solid #e9ecef;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        input, textarea, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        input:focus, textarea:focus, select:focus {
-            outline: none;
-            border-color: #3498db;
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .checkbox-group input {
-            width: auto;
-        }
-
-        .checkbox-group label {
-            margin-bottom: 0;
-            font-weight: normal;
-        }
-
-        .hint {
-            font-size: 12px;
-            color: #6c757d;
-            margin-top: 5px;
-            font-style: italic;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 25px;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .btn-start {
-            background: linear-gradient(135deg, #00b09b 0%, #96c93d 100%);
-            color: white;
-        }
-
-        .btn-stop {
-            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            color: white;
-        }
-
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .status-box {
-            background: white;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            height: 400px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        .status-line {
-            margin-bottom: 8px;
-            padding: 5px;
-            border-radius: 4px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .status-line:nth-child(odd) {
-            background: #f8f9fa;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #3498db;
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .proxy-info {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 10px 15px;
-            margin-top: 15px;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .auto-keyword-info {
-            background: #e8f5e8;
-            border: 1px solid #4caf50;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 13px;
-        }
-
-        .toggle-keywords {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-bottom: 10px;
-        }
-
-        .keyword-preview {
-            background: #f1f3f4;
-            border: 1px dashed #ccc;
-            border-radius: 5px;
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 13px;
-            display: none;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; margin: 5px 0; }
+        button:hover { background: #0056b3; }
+        button.stop { background: #dc3545; }
+        button.stop:hover { background: #c82333; }
+        .status { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; max-height: 300px; overflow-y: auto; }
+        .status-line { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; }
+        .cycle-info { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🚀 SEO Traffic Booster</h1>
-            <p>Boost your website traffic with AI-powered automation</p>
+        <h1>🚀 SEO Traffic Booster</h1>
+        
+        <form id="seo-form">
+            <div class="form-group">
+                <label for="website">Target Website:</label>
+                <input type="url" id="website" name="website" placeholder="https://cryptoajah.blogspot.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="keywords">Keywords (satu per baris, kosongkan untuk auto-generate):</label>
+                <textarea id="keywords" name="keywords" rows="4" placeholder="cryptoajah blog&#10;cryptoajah articles&#10;site:cryptoajah.blogspot.com"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="cycles">Number of Cycles:</label>
+                <input type="number" id="cycles" name="cycles" value="10" min="1" max="100">
+            </div>
+            
+            <div class="form-group">
+                <label for="delay">Delay Between Cycles (seconds):</label>
+                <input type="number" id="delay" name="delay" value="30" min="10" max="300">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxies">Proxies (satu per baris, format: ip:port atau user:pass@ip:port):</label>
+                <textarea id="proxies" name="proxies" rows="4" placeholder="192.168.1.1:8080&#10;user:pass@proxy.com:3128"></textarea>
+            </div>
+            
+            <button type="submit">Start SEO Booster</button>
+            <button type="button" id="stop-btn" class="stop" style="display:none;">Stop Booster</button>
+        </form>
+        
+        <div class="cycle-info">
+            <strong>Cycle: <span id="current-cycle">0</span> / <span id="total-cycles">0</span></strong>
+            <br>Current Proxy: <span id="current-proxy">None</span>
         </div>
-
-        <div class="content">
-            <div class="form-section">
-                <h2>Configuration</h2>
-                
-                <div class="form-group">
-                    <label for="website">Target Website URL *</label>
-                    <input type="url" id="website" placeholder="https://example.com" required>
-                    <div class="hint">Masukkan URL website yang ingin ditingkatkan traffic-nya</div>
-                </div>
-
-                <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <label for="keywords">Keywords (Opsional - Auto Generate dari URL)</label>
-                        <button type="button" class="toggle-keywords" onclick="toggleKeywordPreview()">Preview Auto Keywords</button>
-                    </div>
-                    <textarea id="keywords" placeholder="Kosongkan untuk generate otomatis dari URL\nAtau masukkan keywords manual (satu per baris)"></textarea>
-                    <div class="hint">Kosongkan untuk generate otomatis, atau masukkan keywords manual satu per baris</div>
-                    
-                    <div id="keyword-preview" class="keyword-preview">
-                        <strong>Auto-generated keywords preview:</strong>
-                        <div id="preview-content"></div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="cycles">Number of Cycles</label>
-                    <input type="number" id="cycles" value="10" min="1" max="1000">
-                    <div class="hint">Jumlah siklus traffic yang akan dijalankan</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="delay">Delay Between Cycles (seconds)</label>
-                    <input type="number" id="delay" value="30" min="10" max="3600">
-                    <div class="hint">Delay antara setiap siklus dalam detik</div>
-                </div>
-
-                <div class="form-group">
-                    <label for="proxies">Proxies (Opsional)</label>
-                    <textarea id="proxies" placeholder="ip:port\nusername:password@ip:port"></textarea>
-                    <div class="hint">Masukkan proxies (satu per baris). Kosongkan untuk menggunakan IP asli</div>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-start" id="startBtn" onclick="startCycles()">
-                        <span class="loading" id="startLoading" style="display: none;"></span>
-                        START BOOSTING
-                    </button>
-                    <button class="btn btn-stop" id="stopBtn" onclick="stopCycles()" disabled>
-                        STOP BOOSTING
-                    </button>
-                </div>
-            </div>
-
-            <div class="status-section">
-                <h2>Status & Monitoring</h2>
-                
-                <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-value" id="currentCycle">0</div>
-                        <div class="stat-label">Current Cycle</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalCycles">0</div>
-                        <div class="stat-label">Total Cycles</div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Real-time Status</label>
-                    <div class="status-box" id="statusBox">
-                        <div class="status-line">System ready. Configure settings and click START BOOSTING.</div>
-                    </div>
-                </div>
-
-                <div id="proxyInfo" class="proxy-info" style="display: none;">
-                    <strong>Current Proxy:</strong> <span id="currentProxy">None</span>
-                </div>
-            </div>
+        
+        <div class="status">
+            <h3>Status Log:</h3>
+            <div id="status-log"></div>
         </div>
     </div>
 
     <script>
         const socket = io();
-        let isRunning = false;
-
-        // Socket event handlers
-        socket.on('connect', function() {
-            addStatusLine('Connected to SEO Traffic Booster server');
+        const form = document.getElementById('seo-form');
+        const stopBtn = document.getElementById('stop-btn');
+        const statusLog = document.getElementById('status-log');
+        const currentCycle = document.getElementById('current-cycle');
+        const totalCycles = document.getElementById('total-cycles');
+        const currentProxy = document.getElementById('current-proxy');
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const data = {
+                website: formData.get('website'),
+                keywords: formData.get('keywords'),
+                cycles: formData.get('cycles'),
+                delay: formData.get('delay'),
+                proxies: formData.get('proxies')
+            };
+            
+            socket.emit('start_cycles', data);
         });
-
+        
+        stopBtn.addEventListener('click', function() {
+            socket.emit('stop_cycles');
+        });
+        
         socket.on('status_update', function(data) {
-            updateStatus(data);
-        });
-
-        socket.on('start_success', function(data) {
-            isRunning = true;
-            updateButtonStates();
-            addStatusLine(data.message);
-        });
-
-        socket.on('stop_success', function(data) {
-            isRunning = false;
-            updateButtonStates();
-            addStatusLine(data.message);
-        });
-
-        socket.on('error', function(data) {
-            addStatusLine('ERROR: ' + data.message, true);
-        });
-
-        function addStatusLine(message, isError = false) {
-            const statusBox = document.getElementById('statusBox');
             const statusLine = document.createElement('div');
             statusLine.className = 'status-line';
-            statusLine.style.color = isError ? '#e74c3c' : '#2c3e50';
-            statusLine.textContent = message;
+            statusLine.textContent = data.message;
+            statusLog.appendChild(statusLine);
+            statusLog.scrollTop = statusLog.scrollHeight;
             
-            statusBox.appendChild(statusLine);
-            statusBox.scrollTop = statusBox.scrollHeight;
-        }
-
-        function updateStatus(data) {
-            // Update status line
-            addStatusLine(data.message);
-            
-            // Update statistics
-            document.getElementById('currentCycle').textContent = data.cycle;
-            document.getElementById('totalCycles').textContent = data.totalCycles;
-            
-            // Update proxy info
-            const proxyInfo = document.getElementById('proxyInfo');
-            const currentProxy = document.getElementById('currentProxy');
-            
-            if (data.current_proxy) {
-                currentProxy.textContent = data.current_proxy;
-                proxyInfo.style.display = 'block';
-            } else {
-                proxyInfo.style.display = 'none';
-            }
-        }
-
-        function startCycles() {
-            const website = document.getElementById('website').value.trim();
-            const keywords = document.getElementById('keywords').value;
-            const cycles = document.getElementById('cycles').value;
-            const delay = document.getElementById('delay').value;
-            const proxies = document.getElementById('proxies').value;
-
-            if (!website) {
-                alert('Please enter target website URL!');
-                return;
-            }
-
-            // Show loading
-            document.getElementById('startLoading').style.display = 'inline-block';
-            document.getElementById('startBtn').disabled = true;
-
-            socket.emit('start_cycles', {
-                website: website,
-                keywords: keywords,
-                cycles: parseInt(cycles),
-                delay: parseInt(delay),
-                proxies: proxies
-            });
-
-            // Hide loading after 2 seconds regardless
-            setTimeout(() => {
-                document.getElementById('startLoading').style.display = 'none';
-                document.getElementById('startBtn').disabled = false;
-            }, 2000);
-        }
-
-        function stopCycles() {
-            socket.emit('stop_cycles');
-        }
-
-        function updateButtonStates() {
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            
-            startBtn.disabled = isRunning;
-            stopBtn.disabled = !isRunning;
-        }
-
-        function toggleKeywordPreview() {
-            const website = document.getElementById('website').value.trim();
-            const preview = document.getElementById('keyword-preview');
-            const previewContent = document.getElementById('preview-content');
-            
-            if (!website) {
-                alert('Please enter website URL first to preview auto-generated keywords');
-                return;
-            }
-
-            if (preview.style.display === 'block') {
-                preview.style.display = 'none';
-                return;
-            }
-
-            // Generate sample keywords based on URL (client-side simulation)
-            const sampleKeywords = generateSampleKeywords(website);
-            previewContent.innerHTML = sampleKeywords.map(kw => 
-                `<div>• ${kw}</div>`
-            ).join('');
-            
-            preview.style.display = 'block';
-        }
-
-        function generateSampleKeywords(url) {
-            // Simple client-side keyword generation simulation
-            try {
-                const domain = url.replace(/https?:\/\/(www\.)?/, '').split('/')[0];
-                const domainParts = domain.split('.')[0].split('-');
-                
-                let keywords = [];
-                
-                // Add domain-based keywords
-                domainParts.forEach(part => {
-                    if (part.length > 2) {
-                        keywords.push(part.charAt(0).toUpperCase() + part.slice(1));
-                    }
-                });
-                
-                // Add common variations
-                const baseKeywords = [...keywords];
-                baseKeywords.forEach(kw => {
-                    keywords.push(`what is ${kw}`);
-                    keywords.push(`${kw} news`);
-                    keywords.push(`latest ${kw}`);
-                    keywords.push(`best ${kw}`);
-                });
-                
-                return keywords.slice(0, 8); // Return first 8 keywords
-            } catch (e) {
-                return ['technology', 'digital news', 'web guide', 'online content', 'internet updates'];
-            }
-        }
-
-        // Auto-generate keywords when website URL changes and keywords field is empty
-        document.getElementById('website').addEventListener('blur', function() {
-            const website = this.value.trim();
-            const keywordsField = document.getElementById('keywords');
-            
-            if (website && !keywordsField.value.trim()) {
-                // Show hint that keywords will be auto-generated
-                const hint = keywordsField.parentNode.querySelector('.hint');
-                hint.innerHTML = 'Keywords akan digenerate otomatis dari URL: ' + website;
-                hint.style.color = '#27ae60';
-            }
+            currentCycle.textContent = data.cycle;
+            totalCycles.textContent = data.total_cycles;
+            currentProxy.textContent = data.current_proxy || 'None';
         });
-
-        // Clear hint when user starts typing in keywords field
-        document.getElementById('keywords').addEventListener('input', function() {
-            if (this.value.trim()) {
-                const hint = this.parentNode.querySelector('.hint');
-                hint.innerHTML = 'Kosongkan untuk generate otomatis, atau masukkan keywords manual satu per baris';
-                hint.style.color = '#6c757d';
-            }
+        
+        socket.on('start_success', function(data) {
+            stopBtn.style.display = 'block';
+            alert(data.message);
+        });
+        
+        socket.on('stop_success', function(data) {
+            stopBtn.style.display = 'none';
+            alert(data.message);
+        });
+        
+        socket.on('error', function(data) {
+            alert('Error: ' + data.message);
         });
     </script>
 </body>
-    </html>
+</html>
