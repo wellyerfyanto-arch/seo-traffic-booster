@@ -6,370 +6,62 @@
     <title>SEO Traffic Booster</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        
-        .header h1 {
-            color: #333;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            color: #666;
-            font-size: 1.1em;
-        }
-        
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 0.95em;
-        }
-        
-        input, textarea {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e1e1e1;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s ease;
-            background: #fafafa;
-        }
-        
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-        
-        textarea {
-            resize: vertical;
-            min-height: 100px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin: 25px 0;
-        }
-        
-        button {
-            flex: 1;
-            padding: 15px 25px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .btn-start {
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
-        }
-        
-        .btn-start:hover {
-            background: linear-gradient(135deg, #45a049, #4CAF50);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
-        }
-        
-        .btn-stop {
-            background: linear-gradient(135deg, #f44336, #d32f2f);
-            color: white;
-            display: none;
-        }
-        
-        .btn-stop:hover {
-            background: linear-gradient(135deg, #d32f2f, #f44336);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
-        }
-        
-        .stats-container {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 25px 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-        }
-        
-        .stat-item {
-            text-align: center;
-            padding: 15px;
-        }
-        
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        
-        .stat-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-        }
-        
-        .status-container {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            margin-top: 20px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .status-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .status-header h3 {
-            color: #333;
-            font-size: 1.3em;
-        }
-        
-        .status-log {
-            background: white;
-            border: 1px solid #e1e1e1;
-            border-radius: 8px;
-            padding: 15px;
-            max-height: 400px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            line-height: 1.5;
-        }
-        
-        .status-line {
-            margin: 8px 0;
-            padding: 8px 12px;
-            border-radius: 5px;
-            border-left: 4px solid #667eea;
-            background: #f8f9fa;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .status-line.success {
-            border-left-color: #4CAF50;
-            background: #f1f8e9;
-        }
-        
-        .status-line.warning {
-            border-left-color: #ff9800;
-            background: #fff3e0;
-        }
-        
-        .status-line.error {
-            border-left-color: #f44336;
-            background: #ffebee;
-        }
-        
-        .status-line.info {
-            border-left-color: #2196F3;
-            background: #e3f2fd;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .clear-btn {
-            background: #6c757d;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.85em;
-        }
-        
-        .clear-btn:hover {
-            background: #5a6268;
-        }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 25px 0;
-        }
-        
-        .feature-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            border-left: 4px solid #667eea;
-        }
-        
-        .feature-icon {
-            font-size: 2em;
-            margin-bottom: 10px;
-        }
-        
-        .feature-text {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .button-group {
-                flex-direction: column;
-            }
-            
-            .container {
-                padding: 20px;
-                margin: 10px;
-            }
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; margin: 5px 0; }
+        button:hover { background: #0056b3; }
+        button.stop { background: #dc3545; }
+        button.stop:hover { background: #c82333; }
+        .status { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 20px; max-height: 300px; overflow-y: auto; }
+        .status-line { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; }
+        .cycle-info { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🚀 SEO Traffic Booster</h1>
-            <p>Increase your website traffic with automated human-like behavior simulation</p>
-        </div>
-        
-        <div class="features">
-            <div class="feature-card">
-                <div class="feature-icon">🌐</div>
-                <div class="feature-text">Google Search Simulation</div>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🤖</div>
-                <div class="feature-text">Anti-Detection Technology</div>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <div class="feature-text">Traffic Analytics</div>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">🔒</div>
-                <div class="feature-text">Proxy Support</div>
-            </div>
-        </div>
+        <h1>🚀 SEO Traffic Booster</h1>
         
         <form id="seo-form">
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label for="website">🌐 Target Website URL:</label>
-                    <input type="url" id="website" name="website" placeholder="https://cryptoajah.blogspot.com" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cycles">🔄 Number of Cycles:</label>
-                    <input type="number" id="cycles" name="cycles" value="10" min="1" max="100">
-                </div>
-                
-                <div class="form-group">
-                    <label for="delay">⏱️ Delay Between Cycles (seconds):</label>
-                    <input type="number" id="delay" name="delay" value="30" min="10" max="300">
-                </div>
-                
-                <div class="form-group">
-                    <label for="keywords">🔍 Keywords (one per line, empty for auto-generate):</label>
-                    <textarea id="keywords" name="keywords" placeholder="cryptoajah blog&#10;cryptoajah articles&#10;site:cryptoajah.blogspot.com"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="proxies">🔒 Proxies (one per line, format: ip:port or user:pass@ip:port):</label>
-                    <textarea id="proxies" name="proxies" placeholder="192.168.1.1:8080&#10;user:pass@proxy.com:3128"></textarea>
-                </div>
+            <div class="form-group">
+                <label for="website">Target Website:</label>
+                <input type="url" id="website" name="website" placeholder="https://cryptoajah.blogspot.com" required>
             </div>
             
-            <div class="button-group">
-                <button type="submit" class="btn-start">🚀 Start SEO Booster</button>
-                <button type="button" id="stop-btn" class="btn-stop">🛑 Stop Booster</button>
+            <div class="form-group">
+                <label for="keywords">Keywords (satu per baris, kosongkan untuk auto-generate):</label>
+                <textarea id="keywords" name="keywords" rows="4" placeholder="cryptoajah blog&#10;cryptoajah articles&#10;site:cryptoajah.blogspot.com"></textarea>
             </div>
+            
+            <div class="form-group">
+                <label for="cycles">Number of Cycles:</label>
+                <input type="number" id="cycles" name="cycles" value="10" min="1" max="100">
+            </div>
+            
+            <div class="form-group">
+                <label for="delay">Delay Between Cycles (seconds):</label>
+                <input type="number" id="delay" name="delay" value="30" min="10" max="300">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxies">Proxies (satu per baris, format: ip:port atau user:pass@ip:port):</label>
+                <textarea id="proxies" name="proxies" rows="4" placeholder="192.168.1.1:8080&#10;user:pass@proxy.com:3128"></textarea>
+            </div>
+            
+            <button type="submit">Start SEO Booster</button>
+            <button type="button" id="stop-btn" class="stop" style="display:none;">Stop Booster</button>
         </form>
         
-        <div class="stats-container">
-            <div class="stat-item">
-                <div class="stat-value" id="current-cycle">0</div>
-                <div class="stat-label">Current Cycle</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="total-cycles">0</div>
-                <div class="stat-label">Total Cycles</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" id="current-proxy">None</div>
-                <div class="stat-label">Current Proxy</div>
-            </div>
+        <div class="cycle-info">
+            <strong>Cycle: <span id="current-cycle">0</span> / <span id="total-cycles">0</span></strong>
+            <br>Current Proxy: <span id="current-proxy">None</span>
         </div>
         
-        <div class="status-container">
-            <div class="status-header">
-                <h3>📋 Activity Log</h3>
-                <button type="button" class="clear-btn" id="clear-log">Clear Log</button>
-            </div>
-            <div class="status-log" id="status-log">
-                <div class="status-line info">Ready to start SEO Traffic Booster...</div>
-            </div>
+        <div class="status">
+            <h3>Status Log:</h3>
+            <div id="status-log"></div>
         </div>
     </div>
 
@@ -381,22 +73,6 @@
         const currentCycle = document.getElementById('current-cycle');
         const totalCycles = document.getElementById('total-cycles');
         const currentProxy = document.getElementById('current-proxy');
-        const clearLogBtn = document.getElementById('clear-log');
-        
-        // Function to determine status line class based on message content
-        function getStatusClass(message) {
-            if (message.includes('✅') || message.includes('Success') || message.includes('Completed')) {
-                return 'success';
-            } else if (message.includes('❌') || message.includes('Error') || message.includes('Failed')) {
-                return 'error';
-            } else if (message.includes('⚠️') || message.includes('Warning')) {
-                return 'warning';
-            } else if (message.includes('🔍') || message.includes('Searching')) {
-                return 'info';
-            } else {
-                return '';
-            }
-        }
         
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -416,13 +92,9 @@
             socket.emit('stop_cycles');
         });
         
-        clearLogBtn.addEventListener('click', function() {
-            statusLog.innerHTML = '<div class="status-line info">Log cleared...</div>';
-        });
-        
         socket.on('status_update', function(data) {
             const statusLine = document.createElement('div');
-            statusLine.className = `status-line ${getStatusClass(data.message)}`;
+            statusLine.className = 'status-line';
             statusLine.textContent = data.message;
             statusLog.appendChild(statusLine);
             statusLog.scrollTop = statusLog.scrollHeight;
@@ -434,31 +106,17 @@
         
         socket.on('start_success', function(data) {
             stopBtn.style.display = 'block';
-            addStatusLine(`🚀 ${data.message}`, 'success');
+            alert(data.message);
         });
         
         socket.on('stop_success', function(data) {
             stopBtn.style.display = 'none';
-            addStatusLine(`🛑 ${data.message}`, 'info');
+            alert(data.message);
         });
         
         socket.on('error', function(data) {
-            addStatusLine(`❌ Error: ${data.message}`, 'error');
+            alert('Error: ' + data.message);
         });
-        
-        function addStatusLine(message, type = '') {
-            const statusLine = document.createElement('div');
-            statusLine.className = `status-line ${type}`;
-            statusLine.textContent = message;
-            statusLog.appendChild(statusLine);
-            statusLog.scrollTop = statusLog.scrollHeight;
-        }
-        
-        // Add some sample status messages for demo
-        setTimeout(() => {
-            addStatusLine('✅ System initialized successfully', 'success');
-            addStatusLine('🔍 Ready to start traffic simulation', 'info');
-        }, 1000);
     </script>
 </body>
-</html>
+    </html>
